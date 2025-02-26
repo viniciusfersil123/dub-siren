@@ -7,7 +7,7 @@ using namespace daisysp;
 
 DaisySeed hw;
 
-float volumeValue;
+float VolumeValue;
 float DecayValue;
 float DepthValue;
 float TuneValue;
@@ -53,11 +53,13 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                    AudioHandle::OutputBuffer out,
                    size_t                    size)
 {
+    float output;
+
     for(size_t i = 0; i < size; i++)
     {
         vco.SetFreq(30.0f + 9000.0f * hw.adc.GetFloat(TuneKnob));
-        out[0][i] = vco.Process();
-        out[1][i] = out[0][i];
+        output    = vco.Process() * VolumeValue;
+        out[0][i] = output;
     }
 }
 
@@ -73,7 +75,8 @@ int main(void)
 
     while(1)
     {
-        TuneValue = hw.adc.GetFloat(TuneKnob);
+        TuneValue   = hw.adc.GetFloat(TuneKnob);
+        VolumeValue = hw.adc.GetFloat(VolumeKnob);
         // hw.PrintLine("Volume: " FLT_FMT3,
         //              FLT_VAR3(hw.adc.GetFloat(VolumeKnob)));
         // hw.PrintLine("Decay: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(DecayKnob)));
