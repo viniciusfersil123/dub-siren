@@ -15,6 +15,7 @@ float SweepValue;
 float RateValue;
 bool  lfoStates[4] = {false, false, false, false};
 // Switch lfoButtons[4];
+Oscillator osc;
 
 
 enum AdcChannel
@@ -64,14 +65,14 @@ int main(void)
     hw.StartAudio(AudioCallback);
     while(1)
     {
-        hw.PrintLine("Volume: " FLT_FMT3,
-                     FLT_VAR3(hw.adc.GetFloat(VolumeKnob)));
-        hw.PrintLine("Decay: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(DecayKnob)));
-        hw.PrintLine("Depth: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(DepthKnob)));
-        hw.PrintLine("Tune: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(TuneKnob)));
-        hw.PrintLine("Sweep: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(SweepKnob)));
-        hw.PrintLine("Rate: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(RateKnob)));
-        hw.PrintLine("\n");
-        System::Delay(1000);
+        // hw.PrintLine("Volume: " FLT_FMT3,
+        //              FLT_VAR3(hw.adc.GetFloat(VolumeKnob)));
+        // hw.PrintLine("Decay: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(DecayKnob)));
+        // hw.PrintLine("Depth: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(DepthKnob)));
+        // hw.PrintLine("Tune: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(TuneKnob)));
+        // hw.PrintLine("Sweep: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(SweepKnob)));
+        // hw.PrintLine("Rate: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(RateKnob)));
+        // hw.PrintLine("\n");
+        // System::Delay(1000);
     }
 }
