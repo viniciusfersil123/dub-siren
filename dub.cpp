@@ -16,6 +16,7 @@ float RateValue;
 bool  lfoStates[4] = {false, false, false, false};
 // Switch lfoButtons[4];
 Oscillator vco;
+Oscillator lfo;
 
 
 enum AdcChannel
@@ -48,6 +49,12 @@ void init_vco()
     vco.SetWaveform(vco.WAVE_SIN);
 }
 
+void init_lfo()
+{
+    lfo.Init(hw.AudioSampleRate());
+    lfo.SetWaveform(lfo.WAVE_SIN);
+}
+
 
 void AudioCallback(AudioHandle::InputBuffer  in,
                    AudioHandle::OutputBuffer out,
@@ -60,6 +67,13 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         vco.SetFreq(30.0f + 9000.0f * hw.adc.GetFloat(TuneKnob));
         output    = vco.Process() * VolumeValue;
         out[0][i] = output;
+        lfo.SetAmp(DepthValue);
+        lfo.SetFreq(20 * RateValue);
+
+        vco.SetFreq(30.0f + 9000.0f * hw.adc.GetFloat(TuneKnob) + 9000.0f * lfo.Process());
+
+        out[0][i] = vco.Process();
+        out[1][i] = out[0][i];
     }
 }
 
@@ -68,6 +82,7 @@ int main(void)
     hw.Init();
     init_knobs();
     init_vco();
+    init_lfo();
     hw.SetAudioBlockSize(4); // number of samples handled per callback
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
     hw.StartLog();
@@ -77,6 +92,11 @@ int main(void)
     {
         TuneValue   = hw.adc.GetFloat(TuneKnob);
         VolumeValue = hw.adc.GetFloat(VolumeKnob);
+        TuneValue = hw.adc.GetFloat(TuneKnob);
+
+        DepthValue = hw.adc.GetFloat(DepthKnob);
+        RateValue = hw.adc.GetFloat(DecayKnob);
+
         // hw.PrintLine("Volume: " FLT_FMT3,
         //              FLT_VAR3(hw.adc.GetFloat(VolumeKnob)));
         // hw.PrintLine("Decay: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(DecayKnob)));
