@@ -15,7 +15,7 @@ float SweepValue;
 float RateValue;
 bool  lfoStates[4] = {false, false, false, false};
 // Switch lfoButtons[4];
-Oscillator osc;
+Oscillator vco;
 
 
 enum AdcChannel
@@ -42,6 +42,12 @@ void init_knobs()
     hw.adc.Start();
 }
 
+void init_vco()
+{
+    vco.Init(hw.AudioSampleRate());
+    vco.SetWaveform(vco.WAVE_SIN);
+}
+
 
 void AudioCallback(AudioHandle::InputBuffer  in,
                    AudioHandle::OutputBuffer out,
@@ -49,22 +55,25 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 {
     for(size_t i = 0; i < size; i++)
     {
-        out[0][i] = in[0][i];
-        out[1][i] = in[1][i];
+        vco.SetFreq(30.0f + 9000.0f * hw.adc.GetFloat(TuneKnob));
+        out[0][i] = vco.Process();
+        out[1][i] = out[0][i];
     }
 }
 
 int main(void)
 {
     hw.Init();
-
     init_knobs();
+    init_vco();
     hw.SetAudioBlockSize(4); // number of samples handled per callback
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
     hw.StartLog();
     hw.StartAudio(AudioCallback);
+
     while(1)
     {
+        TuneValue = hw.adc.GetFloat(TuneKnob);
         // hw.PrintLine("Volume: " FLT_FMT3,
         //              FLT_VAR3(hw.adc.GetFloat(VolumeKnob)));
         // hw.PrintLine("Decay: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(DecayKnob)));
