@@ -18,6 +18,8 @@ bool  lfoStates[4] = {false, false, false, false};
 Oscillator vco;
 Oscillator lfo;
 
+Switch lfoButton1;
+
 
 enum AdcChannel
 {
@@ -69,7 +71,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
         vco.SetFreq(30.0f + 9000.0f * TuneValue + 9000.0f * lfo.Process());
 
-        output    = vco.Process() * VolumeValue;
+        output = vco.Process() * VolumeValue;
 
         out[0][i] = output;
         out[1][i] = output;
@@ -82,6 +84,7 @@ int main(void)
     init_knobs();
     init_vco();
     init_lfo();
+    lfoButton1.Init(hw.GetPin(21), 50);
     hw.SetAudioBlockSize(4); // number of samples handled per callback
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
     hw.StartLog();
@@ -89,11 +92,14 @@ int main(void)
 
     while(1)
     {
+        lfoButton1.Debounce();
         TuneValue   = hw.adc.GetFloat(TuneKnob);
         VolumeValue = hw.adc.GetFloat(VolumeKnob);
 
         DepthValue = hw.adc.GetFloat(DepthKnob);
-        RateValue = hw.adc.GetFloat(DecayKnob);
+        RateValue  = hw.adc.GetFloat(DecayKnob);
+        hw.SetLed(lfoButton1.Pressed());
+
 
         // hw.PrintLine("Volume: " FLT_FMT3,
         //              FLT_VAR3(hw.adc.GetFloat(VolumeKnob)));
