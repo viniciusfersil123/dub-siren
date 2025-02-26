@@ -64,16 +64,15 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
     for(size_t i = 0; i < size; i++)
     {
-        vco.SetFreq(30.0f + 9000.0f * hw.adc.GetFloat(TuneKnob));
-        output    = vco.Process() * VolumeValue;
-        out[0][i] = output;
         lfo.SetAmp(DepthValue);
         lfo.SetFreq(20 * RateValue);
 
-        vco.SetFreq(30.0f + 9000.0f * hw.adc.GetFloat(TuneKnob) + 9000.0f * lfo.Process());
+        vco.SetFreq(30.0f + 9000.0f * TuneValue + 9000.0f * lfo.Process());
 
-        out[0][i] = vco.Process();
-        out[1][i] = out[0][i];
+        output    = vco.Process() * VolumeValue;
+
+        out[0][i] = output;
+        out[1][i] = output;
     }
 }
 
@@ -92,7 +91,6 @@ int main(void)
     {
         TuneValue   = hw.adc.GetFloat(TuneKnob);
         VolumeValue = hw.adc.GetFloat(VolumeKnob);
-        TuneValue = hw.adc.GetFloat(TuneKnob);
 
         DepthValue = hw.adc.GetFloat(DepthKnob);
         RateValue = hw.adc.GetFloat(DecayKnob);
