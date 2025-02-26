@@ -7,13 +7,13 @@ using namespace daisysp;
 
 DaisySeed hw;
 
-float  volumeValue;
-float  DecayValue;
-float  DepthValue;
-float  TuneValue;
-float  SweepValue;
-float  RateValue;
-bool   lfoStates[4] = {false, false, false, false};
+float volumeValue;
+float DecayValue;
+float DepthValue;
+float TuneValue;
+float SweepValue;
+float RateValue;
+bool  lfoStates[4] = {false, false, false, false};
 // Switch lfoButtons[4];
 
 
@@ -30,13 +30,15 @@ enum AdcChannel
 
 void init_knobs()
 {
-    AdcChannelConfig my_adc_config[NUM_ADC_CHANNELS];
+    AdcChannelConfig my_adc_config[6];
     my_adc_config[VolumeKnob].InitSingle(daisy::seed::A0);
     my_adc_config[DecayKnob].InitSingle(daisy::seed::A1);
     my_adc_config[DepthKnob].InitSingle(daisy::seed::A2);
     my_adc_config[TuneKnob].InitSingle(daisy::seed::A3);
     my_adc_config[SweepKnob].InitSingle(daisy::seed::A4);
     my_adc_config[RateKnob].InitSingle(daisy::seed::A5);
+    hw.adc.Init(my_adc_config, NUM_ADC_CHANNELS);
+    hw.adc.Start();
 }
 
 
@@ -54,7 +56,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 int main(void)
 {
     hw.Init();
-    hw.adc.Start();
+
     init_knobs();
     hw.SetAudioBlockSize(4); // number of samples handled per callback
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);

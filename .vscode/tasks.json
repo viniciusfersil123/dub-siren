@@ -2,10 +2,7 @@
   "tasks": [
     {
       "command": "make clean; make",
-      "group": {
-        "isDefault": true,
-        "kind": "build"
-      },
+      "group": "build",
       "label": "build",
       "options": {
         "cwd": "${workspaceFolder}"
@@ -35,7 +32,11 @@
       "problemMatcher": [
         "$gcc"
       ],
-      "type": "shell"
+      "type": "shell",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
     },
     {
       "command": "make clean;make",
