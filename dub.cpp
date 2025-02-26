@@ -46,7 +46,7 @@ void init_knobs()
 void init_vco()
 {
     vco.Init(hw.AudioSampleRate());
-    vco.SetWaveform(vco.WAVE_SIN);
+    vco.SetWaveform(vco.WAVE_POLYBLEP_SAW);
 }
 
 void init_lfo()
