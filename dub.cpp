@@ -18,7 +18,10 @@ bool  lfoStates[4] = {false, false, false, false};
 Oscillator vco;
 Oscillator lfo;
 
-Switch lfoButton1;
+OnePole vcf;
+float VcfValue;
+
+// Switch lfoButton1;
 
 
 enum AdcChannel
@@ -29,18 +32,20 @@ enum AdcChannel
     TuneKnob,
     SweepKnob,
     RateKnob,
+    VcfKnob,
     NUM_ADC_CHANNELS
 };
 
 void init_knobs()
 {
-    AdcChannelConfig my_adc_config[6];
+    AdcChannelConfig my_adc_config[NUM_ADC_CHANNELS];
     my_adc_config[VolumeKnob].InitSingle(daisy::seed::A0);
     my_adc_config[DecayKnob].InitSingle(daisy::seed::A1);
     my_adc_config[DepthKnob].InitSingle(daisy::seed::A2);
     my_adc_config[TuneKnob].InitSingle(daisy::seed::A3);
     my_adc_config[SweepKnob].InitSingle(daisy::seed::A4);
     my_adc_config[RateKnob].InitSingle(daisy::seed::A5);
+    my_adc_config[VcfKnob].InitSingle(daisy::seed::A6);
     hw.adc.Init(my_adc_config, NUM_ADC_CHANNELS);
     hw.adc.Start();
 }
@@ -57,6 +62,11 @@ void init_lfo()
     lfo.SetWaveform(lfo.WAVE_SIN);
 }
 
+void init_vcf()
+{
+    vcf.Init();
+    vcf.SetFilterMode(OnePole::FILTER_MODE_LOW_PASS);
+}
 
 void AudioCallback(AudioHandle::InputBuffer  in,
                    AudioHandle::OutputBuffer out,
@@ -71,7 +81,11 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
         vco.SetFreq(30.0f + 9000.0f * TuneValue + 9000.0f * lfo.Process());
 
-        output = vco.Process() * VolumeValue;
+        vcf.SetFrequency((20.0f + 12000.0f * VcfValue) / hw.AudioSampleRate());
+
+        output = vco.Process();
+        output = vcf.Process(output);
+        output = VolumeValue * output;
 
         out[0][i] = output;
         out[1][i] = output;
@@ -84,7 +98,8 @@ int main(void)
     init_knobs();
     init_vco();
     init_lfo();
-    lfoButton1.Init(hw.GetPin(21), 50);
+    init_vcf();
+    // lfoButton1.Init(hw.GetPin(21), 50);
     hw.SetAudioBlockSize(4); // number of samples handled per callback
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
     hw.StartLog();
@@ -92,14 +107,16 @@ int main(void)
 
     while(1)
     {
-        lfoButton1.Debounce();
+        // lfoButton1.Debounce();
         TuneValue   = hw.adc.GetFloat(TuneKnob);
         VolumeValue = hw.adc.GetFloat(VolumeKnob);
 
         DepthValue = hw.adc.GetFloat(DepthKnob);
         RateValue  = hw.adc.GetFloat(DecayKnob);
-        hw.SetLed(lfoButton1.Pressed());
+        // hw.SetLed(lfoButton1.Pressed());
 
+        // vcf cutoff frequency helper knob
+        VcfValue = hw.adc.GetFloat(VcfKnob);
 
         // hw.PrintLine("Volume: " FLT_FMT3,
         //              FLT_VAR3(hw.adc.GetFloat(VolumeKnob)));
