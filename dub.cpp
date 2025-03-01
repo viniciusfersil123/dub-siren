@@ -1,5 +1,6 @@
 #include "daisy_seed.h"
 #include "daisysp.h"
+#include "dub.h"
 
 using namespace daisy;
 using namespace daisysp;
@@ -13,28 +14,14 @@ float DepthValue;
 float TuneValue;
 float SweepValue;
 float RateValue;
-bool  lfoStates[4] = {false, false, false, false};
 // Switch lfoButtons[4];
-Oscillator vco;
-Oscillator lfo;
 
-OnePole vcf;
-float VcfValue;
+// Dub Siren components
+Vco* vco;
+Lfo* lfo;
+Vcf* vcf;
 
 // Switch lfoButton1;
-
-
-enum AdcChannel
-{
-    VolumeKnob,
-    DecayKnob,
-    DepthKnob,
-    TuneKnob,
-    SweepKnob,
-    RateKnob,
-    VcfKnob,
-    NUM_ADC_CHANNELS
-};
 
 void init_knobs()
 {
@@ -50,22 +37,11 @@ void init_knobs()
     hw.adc.Start();
 }
 
-void init_vco()
+void init_components()
 {
-    vco.Init(hw.AudioSampleRate());
-    vco.SetWaveform(vco.WAVE_POLYBLEP_SAW);
-}
-
-void init_lfo()
-{
-    lfo.Init(hw.AudioSampleRate());
-    lfo.SetWaveform(lfo.WAVE_SIN);
-}
-
-void init_vcf()
-{
-    vcf.Init();
-    vcf.SetFilterMode(OnePole::FILTER_MODE_LOW_PASS);
+    vco = new Vco(hw.AudioSampleRate());
+    lfo = new Lfo(hw.AudioSampleRate());
+    vcf = new Vcf();
 }
 
 void AudioCallback(AudioHandle::InputBuffer  in,
@@ -76,15 +52,15 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
     for(size_t i = 0; i < size; i++)
     {
-        lfo.SetAmp(DepthValue);
-        lfo.SetFreq(20 * RateValue);
+        lfo->SetAmp(DepthValue);
+        lfo->SetFreq(20 * RateValue);
 
-        vco.SetFreq(30.0f + 9000.0f * TuneValue + 9000.0f * lfo.Process());
+        vco->SetFreq(30.0f + 9000.0f * TuneValue + 9000.0f * lfo->Process());
 
-        vcf.SetFrequency((20.0f + 12000.0f * VcfValue) / hw.AudioSampleRate());
+        vcf->SetFreq((20.0f + 12000.0f * vcf->value) / hw.AudioSampleRate()); // must be normalized to sample rate
 
-        output = vco.Process();
-        output = vcf.Process(output);
+        output = vco->Process();
+        output = vcf->Process(output);
         output = VolumeValue * output;
 
         out[0][i] = output;
@@ -95,28 +71,32 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 int main(void)
 {
     hw.Init();
-    init_knobs();
-    init_vco();
-    init_lfo();
-    init_vcf();
-    // lfoButton1.Init(hw.GetPin(21), 50);
     hw.SetAudioBlockSize(4); // number of samples handled per callback
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
+
+    init_knobs();
+    init_components();
+
     hw.StartLog();
     hw.StartAudio(AudioCallback);
 
     while(1)
     {
         // lfoButton1.Debounce();
-        TuneValue   = hw.adc.GetFloat(TuneKnob);
+        
+        // Volume knob
         VolumeValue = hw.adc.GetFloat(VolumeKnob);
 
+        // VCO knobs
+        TuneValue = hw.adc.GetFloat(TuneKnob);
+
+        // LFO knobs
         DepthValue = hw.adc.GetFloat(DepthKnob);
         RateValue  = hw.adc.GetFloat(DecayKnob);
         // hw.SetLed(lfoButton1.Pressed());
 
-        // vcf cutoff frequency helper knob
-        VcfValue = hw.adc.GetFloat(VcfKnob);
+        // VCF cutoff frequency knob
+        vcf->value = hw.adc.GetFloat(VcfKnob);
 
         // hw.PrintLine("Volume: " FLT_FMT3,
         //              FLT_VAR3(hw.adc.GetFloat(VolumeKnob)));
