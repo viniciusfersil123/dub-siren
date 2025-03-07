@@ -20,6 +20,7 @@ float RateValue;
 Vco* vco;
 Lfo* lfo;
 Vcf* vcf;
+EnvelopeGenerator* env_gen;
 
 // Switch lfoButton1;
 enum AdcChannel
@@ -108,6 +109,50 @@ public:
     }
 };
 
+class Envelope
+{
+public:
+    Switch button;
+    Oscillator osc;
+
+    Envelope(int pin, float sample_rate)
+    {
+        button.Init(hw.GetPin(pin), 50);
+        osc.Init(sample_rate);
+        osc.SetWaveform(osc.WAVE_POLYBLEP_SQUARE);
+    }
+};
+
+// TODO: code Envelope inherited classes for different osc waveforms
+
+class EnvelopeGenerator
+{
+public:
+    EnvelopeGenerator(float sample_rate, size_t block_size) :
+        envelopes{
+            Envelope(21, sample_rate),
+            Envelope(22, sample_rate),
+            Envelope(23, sample_rate),
+            Envelope(24, sample_rate)
+        }
+    {
+        decay_envelope.Init(sample_rate, block_size);
+        decay_envelope.SetAttackTime(0);
+        decay_envelope.SetDecayTime(0);
+        decay_envelope.SetSustainLevel(0);
+        decay_envelope.SetReleaseTime(0);
+        // decay_envelope.SetTime();
+    }
+
+    void SetDecay(float time);
+    float Process(bool gate);
+
+    void DebounceButtons();
+
+private:
+    Envelope envelopes[4];
+    Adsr decay_envelope;
+};
 
 // Function declarations
 void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size);

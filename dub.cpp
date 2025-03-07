@@ -24,6 +24,20 @@ void init_components()
     vco = new Vco(hw.AudioSampleRate());
     lfo = new Lfo(hw.AudioSampleRate());
     vcf = new Vcf();
+    // env_gen = new EnvelopeGenerator(hw.AudioSampleRate(), hw.AudioBlockSize());
+}
+
+
+
+// EnvelopeGenerator functions
+void EnvelopeGenerator::SetDecay(float time)
+{
+    this->decay_envelope.SetDecayTime(time);
+}
+
+float EnvelopeGenerator::Process(bool gate)
+{
+    this->decay_envelope.Process(gate);
 }
 
 void AudioCallback(AudioHandle::InputBuffer  in,
@@ -41,8 +55,11 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
         vcf->SetFreq((20.0f + 12000.0f * vcf->value) / hw.AudioSampleRate()); // must be normalized to sample rate
 
+        env_gen->SetDecay(DecayValue);
+
         output = vco->Process();
         output = vcf->Process(output);
+        output = env_gen->Process() * output;
         output = VolumeValue * output;
 
         out[0][i] = output;
