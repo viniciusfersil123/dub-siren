@@ -5,24 +5,6 @@
 using namespace daisy;
 using namespace daisysp;
 
-
-DaisySeed hw;
-
-float VolumeValue;
-float DecayValue;
-float DepthValue;
-float TuneValue;
-float SweepValue;
-float RateValue;
-// Switch lfoButtons[4];
-
-// Dub Siren components
-Vco* vco;
-Lfo* lfo;
-Vcf* vcf;
-
-// Switch lfoButton1;
-
 void init_knobs()
 {
     AdcChannelConfig my_adc_config[NUM_ADC_CHANNELS];

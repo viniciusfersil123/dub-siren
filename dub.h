@@ -6,9 +6,25 @@
 using namespace daisy;
 using namespace daisysp;
 
+DaisySeed hw;
+
+// Knob values
+float VolumeValue;
+float DecayValue;
+float DepthValue;
+float TuneValue;
+float SweepValue;
+float RateValue;
+
+// Dub Siren components
+Vco* vco;
+Lfo* lfo;
+Vcf* vcf;
+
+// Switch lfoButton1;
 enum AdcChannel
 {
-    VolumeKnob,
+    VolumeKnob = 0,
     DecayKnob,
     DepthKnob,
     TuneKnob,
