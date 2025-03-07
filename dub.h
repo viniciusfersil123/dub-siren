@@ -21,6 +21,7 @@ Vco* vco;
 Lfo* lfo;
 Vcf* vcf;
 EnvelopeGenerator* env_gen;
+DecayEnvelope* decay_env;
 
 // Switch lfoButton1;
 enum AdcChannel
@@ -127,6 +128,8 @@ public:
         osc[3].SetWaveform(Oscillator::WAVE_POLYBLEP_TRI);
     }
 
+    void SetAmpAll(float amp);
+    void SetFreqAll(float freq);
     float ProcessAll();
 
 private:
@@ -162,12 +165,12 @@ class DecayEnvelope
 public:
     DecayEnvelope()
     {
-        decay_envelope.Init(hw.AudioSampleRate(), hw.AudioBlockSize());
-        decay_envelope.SetAttackTime(0);
-        decay_envelope.SetDecayTime(0);
-        decay_envelope.SetSustainLevel(0);
-        decay_envelope.SetReleaseTime(0);
-        // decay_envelope.SetTime();
+        decay_env.Init(hw.AudioSampleRate(), hw.AudioBlockSize());
+        decay_env.SetAttackTime(0);
+        decay_env.SetDecayTime(0);
+        decay_env.SetSustainLevel(0);
+        decay_env.SetReleaseTime(0);
+        // decay_env.SetTime();
     }
 
     void SetDecayTime(float time);
@@ -175,7 +178,7 @@ public:
     void Retrigger();
 
 private:
-    Adsr decay_envelope;
+    Adsr decay_env;
 };
 
 class EnvelopeGenerator
@@ -188,7 +191,6 @@ public:
 private:
     Triggers triggers;
     Envelopes envelopes;
-    DecayEnvelope decay_envelope;
 };
 
 

@@ -25,13 +25,26 @@ void init_components()
     vco = new Vco(hw.AudioSampleRate());
     lfo = new Lfo(hw.AudioSampleRate());
     vcf = new Vcf();
-    // env_gen = new EnvelopeGenerator();
+    env_gen = new EnvelopeGenerator();
+    decay_env = new DecayEnvelope();
 }
 // Init functions
 
 
 
 // Envelopes functions
+void Envelopes::SetAmpAll(float amp)
+{
+    for (int i = 0; i < 4; i++)
+        osc[i].SetAmp(amp);
+}
+
+void Envelopes::SetFreqAll(float freq)
+{
+    for (int i = 0; i < 4; i++)
+        osc[i].SetFreq(freq);
+}
+
 float Envelopes::ProcessAll()
 {
     // Process all 4 envelopes and store in value array
@@ -85,12 +98,12 @@ void DecayEnvelope::SetDecayTime(float time)
 
 float DecayEnvelope::Process()
 {
-    return decay_envelope.Process(false);
+    return decay_env.Process(false);
 }
 
 void DecayEnvelope::Retrigger()
 {
-    decay_envelope.Retrigger(false);
+    decay_env.Retrigger(false);
 }
 // DecayEnvelope functions
 
@@ -115,10 +128,15 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
     for(size_t i = 0; i < size; i++)
     {
-        lfo->SetAmp(DepthValue);
-        lfo->SetFreq(20 * RateValue);
+        // lfo->SetAmp(DepthValue);
+        // lfo->SetFreq(20 * RateValue);
 
-        vco->SetFreq(30.0f + 9000.0f * TuneValue + 9000.0f * lfo->Process());
+        env_gen->envelopes.SetAmpAll(DepthValue);
+        env_gen->envelopes.SetFreqAll(20 * RateValue);
+
+        // vco->SetFreq(30.0f + 9000.0f * TuneValue + 9000.0f * lfo->Process());
+
+        vco->SetFreq(30.0f + 9000.0f * TuneValue + 9000.0f * env_gen->Process());
 
         vcf->SetFreq((20.0f + 12000.0f * vcf->value) / hw.AudioSampleRate()); // Must be normalized to sample rate
 
@@ -132,8 +150,8 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         
         // Apply decay envelope
         if (env_gen->triggers.AnyButtonPressed())
-            env_gen->decay_envelope.Retrigger();
-        output = env_gen->decay_envelope.Process() * output;
+            decay_env->Retrigger();
+        output = decay_env->Process() * output;
 
         // Apply volume
         output = VolumeValue * output;
