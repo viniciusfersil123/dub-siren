@@ -44,7 +44,7 @@ public:
     Vco (float sample_rate)
     {
         osc.Init(sample_rate);
-        osc.SetWaveform(osc.WAVE_POLYBLEP_SAW);
+        osc.SetWaveform(Oscillator::WAVE_POLYBLEP_SQUARE);
     }
 
     void SetFreq(float freq)
@@ -109,34 +109,60 @@ public:
     }
 };
 
-class Envelope
+class Envelopes
 {
 public:
-    Switch button;
-    Oscillator osc;
-
-    Envelope(int pin, float sample_rate)
+    Envelopes()
     {
-        button.Init(hw.GetPin(pin), 50);
-        osc.Init(sample_rate);
-        osc.SetWaveform(osc.WAVE_POLYBLEP_SQUARE);
+        osc[0].Init(hw.AudioSampleRate());
+        osc[0].SetWaveform(Oscillator::WAVE_SIN);
+
+        osc[1].Init(hw.AudioSampleRate());
+        osc[1].SetWaveform(Oscillator::WAVE_POLYBLEP_SAW);
+
+        osc[2].Init(hw.AudioSampleRate());
+        osc[2].SetWaveform(Oscillator::WAVE_POLYBLEP_SQUARE);
+        
+        osc[3].Init(hw.AudioSampleRate());
+        osc[3].SetWaveform(Oscillator::WAVE_POLYBLEP_TRI);
     }
+
+    float ProcessAll();
+
+private:
+    Oscillator osc[4];
+    float value[4];
 };
 
-// TODO: code Envelope inherited classes for different osc waveforms
-
-class EnvelopeGenerator
+class Triggers
 {
 public:
-    EnvelopeGenerator(float sample_rate, size_t block_size) :
-        envelopes{
-            Envelope(21, sample_rate),
-            Envelope(22, sample_rate),
-            Envelope(23, sample_rate),
-            Envelope(24, sample_rate)
-        }
+    Triggers()
     {
-        decay_envelope.Init(sample_rate, block_size);
+        for (int i = 0; i < 4; i++)
+        {
+            button[i].Init(hw.GetPin(28 + i), 50);
+            buttonState[i] = false;
+        }
+        activeEnvelopeIndex = 0;
+    }
+
+    void DebounceAllButtons();
+    const int GetActiveEnvelopeIndex();
+    const bool AnyButtonPressed();
+
+private:
+    Switch button[4];
+    bool buttonState[4];
+    int activeEnvelopeIndex;
+};
+
+class DecayEnvelope
+{
+public:
+    DecayEnvelope()
+    {
+        decay_envelope.Init(hw.AudioSampleRate(), hw.AudioBlockSize());
         decay_envelope.SetAttackTime(0);
         decay_envelope.SetDecayTime(0);
         decay_envelope.SetSustainLevel(0);
@@ -144,17 +170,28 @@ public:
         // decay_envelope.SetTime();
     }
 
-    void SetDecay(float time);
-    float Process(bool gate);
-
-    void DebounceButtons();
+    void SetDecayTime(float time);
+    float Process();
+    void Retrigger();
 
 private:
-    Envelope envelopes[4];
     Adsr decay_envelope;
 };
 
+class EnvelopeGenerator
+{
+public:
+    EnvelopeGenerator() { }
+
+    float Process();
+
+private:
+    Triggers triggers;
+    Envelopes envelopes;
+    DecayEnvelope decay_envelope;
+};
+
+
 // Function declarations
-void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size);
 void init_knobs();
 void init_components();
