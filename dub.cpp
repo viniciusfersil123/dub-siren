@@ -135,6 +135,20 @@ void DecayEnvelope::Retrigger()
 
 
 
+// SweepToTuneButton functions
+void SweepToTuneButton::Debounce()
+{
+    button.Debounce();
+}
+
+bool SweepToTuneButton::Pressed()
+{
+    return button.Pressed();
+}
+// SweepToTuneButton functions
+
+
+
 // EnvelopeGenerator functions
 float EnvelopeGenerator::Process()
 {
@@ -170,7 +184,11 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         output = env_gen->Process();
 
         // Set and apply VCO
-        vco->SetFreq(30.0f + 9000.0f * vco->TuneValue);
+        if (env_gen->sweep_to_tune_button.Pressed()) { // FILTER + TUNE
+            vco->SetFreq(30.0f + 9000.0f * vco->TuneValue);
+        } else { // FILTER
+            vco->SetFreq(30.0f + 9000.0f * env_gen->SweepValue);
+        }
         output *= vco->Process();
 
         // Set and apply VCF low pass filter
@@ -200,7 +218,9 @@ int main(void)
 
     while(1)
     {
+        // Debounce all buttons
         env_gen->triggers.DebounceAllButtons();
+        env_gen->sweep_to_tune_button.Debounce();
         
         // OutAmp volume knob
         VolumeValue = hw.adc.GetFloat(VolumeKnob);

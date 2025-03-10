@@ -131,6 +131,22 @@ private:
     Adsr decay_env;
 };
 
+class SweepToTuneButton
+{
+public:
+    SweepToTuneButton()
+    {
+        button.Init(hw.GetPin(32),
+                    50
+                );
+    }
+
+    void Debounce();
+    bool Pressed();
+private:
+    Switch button;
+};
+
 class EnvelopeGenerator
 {
 public:
@@ -143,6 +159,7 @@ private:
     Triggers triggers;
     Envelopes envelopes;
     DecayEnvelope decay_env;
+    SweepToTuneButton sweep_to_tune_button;
 };
 
 
