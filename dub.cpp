@@ -23,7 +23,6 @@ void init_knobs()
 void init_components()
 {
     vco = new Vco(hw.AudioSampleRate());
-    lfo = new Lfo(hw.AudioSampleRate());
     vcf = new Vcf();
     env_gen = new EnvelopeGenerator();
     decay_env = new DecayEnvelope();
@@ -128,13 +127,8 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
     for(size_t i = 0; i < size; i++)
     {
-        // lfo->SetAmp(DepthValue);
-        // lfo->SetFreq(20 * RateValue);
-
         env_gen->envelopes.SetAmpAll(DepthValue);
         env_gen->envelopes.SetFreqAll(20 * RateValue);
-
-        // vco->SetFreq(30.0f + 9000.0f * TuneValue + 9000.0f * lfo->Process());
 
         vco->SetFreq(30.0f + 9000.0f * TuneValue + 9000.0f * env_gen->Process());
 
@@ -175,7 +169,6 @@ int main(void)
 
     while(1)
     {
-        // lfoButton1.Debounce();
         env_gen->triggers.DebounceAllButtons();
         
         // Volume knob
@@ -187,7 +180,6 @@ int main(void)
         // LFO knobs
         DepthValue = hw.adc.GetFloat(DepthKnob);
         RateValue  = hw.adc.GetFloat(RateKnob);
-        // hw.SetLed(lfoButton1.Pressed());
 
         // VCF cutoff frequency knob
         vcf->value = hw.adc.GetFloat(VcfKnob);

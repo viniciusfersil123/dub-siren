@@ -18,12 +18,10 @@ float RateValue;
 
 // Dub Siren components
 Vco* vco;
-Lfo* lfo;
 Vcf* vcf;
 EnvelopeGenerator* env_gen;
 DecayEnvelope* decay_env;
 
-// Switch lfoButton1;
 enum AdcChannel
 {
     VolumeKnob = 0,
@@ -46,34 +44,6 @@ public:
     {
         osc.Init(sample_rate);
         osc.SetWaveform(Oscillator::WAVE_POLYBLEP_SQUARE);
-    }
-
-    void SetFreq(float freq)
-    {
-        osc.SetFreq(freq);
-    }
-
-    float Process()
-    {
-        return osc.Process();
-    }
-};
-
-class Lfo
-{
-public:
-    bool  lfoStates[4] = {false, false, false, false};
-    Oscillator osc;
-
-    Lfo(float sample_rate)
-    {
-        osc.Init(sample_rate);
-        osc.SetWaveform(osc.WAVE_POLYBLEP_SQUARE);
-    }
-
-    void SetAmp(float amp)
-    {
-        osc.SetAmp(amp);
     }
 
     void SetFreq(float freq)
