@@ -22,12 +22,39 @@ void init_knobs()
 
 void init_components()
 {
-    vco = new Vco(hw.AudioSampleRate());
+    vco = new Vco();
     vcf = new Vcf();
     env_gen = new EnvelopeGenerator();
-    decay_env = new DecayEnvelope();
 }
 // Init functions
+
+
+
+// VCO functions
+void Vco::SetFreq(float freq)
+{
+    osc.SetFreq(freq);
+}
+
+float Vco::Process()
+{
+    return osc.Process();
+}
+// VCO functions
+
+
+
+// VCF functions
+void Vcf::SetFreq(float freq)
+{
+    filter.SetFrequency(freq);
+}
+
+float Vcf::Process(float in)
+{
+    return filter.Process(in);
+}
+// VCF functions
 
 
 
@@ -111,7 +138,8 @@ void DecayEnvelope::Retrigger()
 // EnvelopeGenerator functions
 float EnvelopeGenerator::Process()
 {
-    return this->envelopes.ProcessAll();
+
+    return (this->decay_env.Process() * this->envelopes.ProcessAll());
 }
 // EnvelopeGenerator functions
 
@@ -127,29 +155,32 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
     for(size_t i = 0; i < size; i++)
     {
-        env_gen->envelopes.SetAmpAll(DepthValue);
-        env_gen->envelopes.SetFreqAll(20 * RateValue);
+        // Set Decay Envelope parameters
+        env_gen->decay_env.SetDecayTime(env_gen->decay_env.DecayValue);
 
-        vco->SetFreq(30.0f + 9000.0f * TuneValue + 9000.0f * env_gen->Process());
+        // Set Decay Envelope trigger 
+        if (env_gen->triggers.AnyButtonPressed())
+            env_gen->decay_env.Retrigger();
 
-        vcf->SetFreq((20.0f + 12000.0f * vcf->value) / hw.AudioSampleRate()); // Must be normalized to sample rate
+        // Set LFO parameters
+        env_gen->envelopes.SetAmpAll(env_gen->envelopes.DepthValue);
+        env_gen->envelopes.SetFreqAll(20 * env_gen->envelopes.RateValue);
 
-        env_gen->SetDecay(DecayValue);
+        // Generate the LFO signal
+        output = env_gen->Process();
 
-        // Generate sound from VCO
-        output = vco->Process();
+        // Set and apply VCO
+        vco->SetFreq(30.0f + 9000.0f * vco->TuneValue);
+        output *= vco->Process();
 
-        // Apply VCF low pass filter 
+        // Set and apply VCF low pass filter
+        vcf->SetFreq((20.0f + 12000.0f * env_gen->SweepValue) / hw.AudioSampleRate()); // Must be normalized to sample rate
         output = vcf->Process(output);
         
-        // Apply decay envelope
-        if (env_gen->triggers.AnyButtonPressed())
-            decay_env->Retrigger();
-        output = decay_env->Process() * output;
-
         // Apply volume
-        output = VolumeValue * output;
+        output *= VolumeValue;
 
+        // Output to both channels
         out[0][i] = output;
         out[1][i] = output;
     }
@@ -171,21 +202,19 @@ int main(void)
     {
         env_gen->triggers.DebounceAllButtons();
         
-        // Volume knob
+        // OutAmp volume knob
         VolumeValue = hw.adc.GetFloat(VolumeKnob);
 
-        // VCO knobs
-        TuneValue = hw.adc.GetFloat(TuneKnob);
+        // VCO tune knobs
+        vco->TuneValue = hw.adc.GetFloat(TuneKnob);
 
-        // LFO knobs
-        DepthValue = hw.adc.GetFloat(DepthKnob);
-        RateValue  = hw.adc.GetFloat(RateKnob);
+        // LFO depth and rate knobs
+        env_gen->envelopes.DepthValue = hw.adc.GetFloat(DepthKnob);
+        env_gen->envelopes.RateValue  = hw.adc.GetFloat(RateKnob);
 
-        // VCF cutoff frequency knob
-        vcf->value = hw.adc.GetFloat(VcfKnob);
-
-        // Envelope Generator decay knob
-        DecayValue = hw.adc.GetFloat(DecayKnob);
+        // Envelope Generator knobs
+        env_gen->decay_env.DecayValue = hw.adc.GetFloat(DecayKnob);
+        env_gen->SweepValue = hw.adc.GetFloat(SweepKnob);
 
         // hw.PrintLine("Volume: " FLT_FMT3,
         //              FLT_VAR3(hw.adc.GetFloat(VolumeKnob)));

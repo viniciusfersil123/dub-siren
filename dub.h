@@ -10,17 +10,11 @@ DaisySeed hw;
 
 // Knob values
 float VolumeValue;
-float DecayValue;
-float DepthValue;
-float TuneValue;
-float SweepValue;
-float RateValue;
 
 // Dub Siren components
 Vco* vco;
 Vcf* vcf;
 EnvelopeGenerator* env_gen;
-DecayEnvelope* decay_env;
 
 enum AdcChannel
 {
@@ -38,46 +32,31 @@ class Vco
 {
 public:
     Oscillator osc;
-    float value;
+    float TuneValue;
 
-    Vco (float sample_rate)
+    Vco ()
     {
-        osc.Init(sample_rate);
+        osc.Init(hw.AudioSampleRate());
         osc.SetWaveform(Oscillator::WAVE_POLYBLEP_SQUARE);
     }
 
-    void SetFreq(float freq)
-    {
-        osc.SetFreq(freq);
-    }
-
-    float Process()
-    {
-        return osc.Process();
-    }
+    void SetFreq(float freq);
+    float Process();
 };
 
 class Vcf
 {
 public:
-    OnePole filter;
-    float value;
-
     Vcf()
     {
         filter.Init();
         filter.SetFilterMode(OnePole::FILTER_MODE_LOW_PASS);
     }
     
-    void SetFreq(float freq)
-    {
-        filter.SetFrequency(freq);
-    }
-
-    float Process(float in)
-    {
-        return filter.Process(in);
-    }
+    void SetFreq(float freq);
+    float Process(float in);
+private:
+    OnePole filter;
 };
 
 class Envelopes
@@ -101,10 +80,11 @@ public:
     void SetAmpAll(float amp);
     void SetFreqAll(float freq);
     float ProcessAll();
-
 private:
     Oscillator osc[4];
     float value[4];
+    float DepthValue;
+    float RateValue;
 };
 
 class Triggers
@@ -123,7 +103,6 @@ public:
     void DebounceAllButtons();
     const int GetActiveEnvelopeIndex();
     const bool AnyButtonPressed();
-
 private:
     Switch button[4];
     bool buttonState[4];
@@ -143,10 +122,11 @@ public:
         // decay_env.SetTime();
     }
 
+    float DecayValue;
+
     void SetDecayTime(float time);
     float Process();
     void Retrigger();
-
 private:
     Adsr decay_env;
 };
@@ -156,11 +136,13 @@ class EnvelopeGenerator
 public:
     EnvelopeGenerator() { }
 
-    float Process();
+    float SweepValue;
 
+    float Process();
 private:
     Triggers triggers;
     Envelopes envelopes;
+    DecayEnvelope decay_env;
 };
 
 
