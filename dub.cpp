@@ -32,93 +32,12 @@ void init_components()
 
 
 
-// VCO functions
-void Vco::SetFreq(float freq)
+// EnvelopeGenerator functions
+float EnvelopeGenerator::Process()
 {
-    osc.SetFreq(freq);
+    return (this->decay_env.Process() * lfo->ProcessAll());
 }
-
-float Vco::Process()
-{
-    return osc.Process();
-}
-// VCO functions
-
-
-
-// VCF functions
-void Vcf::SetFreq(float freq)
-{
-    filter.SetFrequency(freq);
-}
-
-float Vcf::Process(float in)
-{
-    return filter.Process(in);
-}
-// VCF functions
-
-
-
-// Lfo functions
-void Lfo::SetAmpAll(float amp)
-{
-    for (int i = 0; i < 4; i++)
-        osc[i].SetAmp(amp);
-}
-
-void Lfo::SetFreqAll(float freq)
-{
-    for (int i = 0; i < 4; i++)
-        osc[i].SetFreq(freq);
-}
-
-void Lfo::ResetPhaseAll()
-{
-    for (int i = 0; i < 4; i++)
-        osc[i].Reset();
-}
-
-float Lfo::ProcessAll()
-{
-    // Process all 4 envelopes and store in value array
-    for (int i = 0; i < 4; i++)
-        value[i] = osc[i].Process();
-
-    return value[env_gen->triggers.GetActiveEnvelope()];
-}
-// Lfo functions
-
-
-
-// Triggers functions
-void Triggers::DebounceAllButtons()
-{
-    for (int i = 0; i < 4; i++)
-    {
-        button[i].Debounce();
-        if (button[i].RisingEdge())
-        {
-            activeEnvelopeIndex = i;
-        }
-        buttonState[i] = button[i].Pressed();
-    }
-}
-
-const int Triggers::GetActiveEnvelopeIndex()
-{
-    return activeEnvelopeIndex;
-}
-
-const bool Triggers::AnyButtonPressed()
-{
-    for (int i = 0; i < 4; i++)
-    {
-        if (buttonState[i]) return true;
-    }
-    return false;
-}
-// Triggers functions
+// EnvelopeGenerator functions
 
 
 
@@ -155,13 +74,93 @@ bool SweepToTuneButton::Pressed()
 
 
 
-// EnvelopeGenerator functions
-float EnvelopeGenerator::Process()
+// Triggers functions
+void Triggers::DebounceAllButtons()
 {
-    return (this->decay_env.Process() * lfo->ProcessAll());
+    for (int i = 0; i < 4; i++)
+    {
+        button[i].Debounce();
+        if (button[i].RisingEdge())
+        {
+            activeEnvelopeIndex = i;
+        }
+        buttonState[i] = button[i].Pressed();
+    }
 }
-// EnvelopeGenerator functions
 
+const int Triggers::GetActiveEnvelopeIndex()
+{
+    return activeEnvelopeIndex;
+}
+
+const bool Triggers::AnyButtonPressed()
+{
+    for (int i = 0; i < 4; i++)
+    {
+        if (buttonState[i]) return true;
+    }
+    return false;
+}
+// Triggers functions
+
+
+
+// Lfo functions
+void Lfo::SetAmpAll(float amp)
+{
+    for (int i = 0; i < 4; i++)
+        osc[i].SetAmp(amp);
+}
+
+void Lfo::SetFreqAll(float freq)
+{
+    for (int i = 0; i < 4; i++)
+        osc[i].SetFreq(freq);
+}
+
+void Lfo::ResetPhaseAll()
+{
+    for (int i = 0; i < 4; i++)
+        osc[i].Reset();
+}
+
+float Lfo::ProcessAll()
+{
+    // Process all 4 envelopes and store in value array
+    for (int i = 0; i < 4; i++)
+        value[i] = osc[i].Process();
+
+    return value[env_gen->triggers.GetActiveEnvelope()];
+}
+// Lfo functions
+
+
+
+// VCF functions
+void Vcf::SetFreq(float freq)
+{
+    filter.SetFrequency(freq);
+}
+
+float Vcf::Process(float in)
+{
+    return filter.Process(in);
+}
+// VCF functions
+
+
+
+// VCO functions
+void Vco::SetFreq(float freq)
+{
+    osc.SetFreq(freq);
+}
+
+float Vco::Process()
+{
+    return osc.Process();
+}
+// VCO functions
 
 
 
@@ -229,19 +228,19 @@ int main(void)
         env_gen->triggers.DebounceAllButtons();
         env_gen->sweep_to_tune_button.Debounce();
         
-        // OutAmp volume knob
-        VolumeValue = hw.adc.GetFloat(VolumeKnob);
+        // Envelope Generator knobs
+        env_gen->decay_env.DecayValue = hw.adc.GetFloat(DecayKnob);
+        env_gen->SweepValue = hw.adc.GetFloat(SweepKnob);
+
+        // LFO depth and rate knobs
+        lfo->DepthValue = hw.adc.GetFloat(DepthKnob);
+        lfo->RateValue  = hw.adc.GetFloat(RateKnob);
 
         // VCO tune knobs
         vco->TuneValue = hw.adc.GetFloat(TuneKnob);
 
-        // LFO depth and rate knobs
-        env_gen->envelopes.DepthValue = hw.adc.GetFloat(DepthKnob);
-        env_gen->envelopes.RateValue  = hw.adc.GetFloat(RateKnob);
-
-        // Envelope Generator knobs
-        env_gen->decay_env.DecayValue = hw.adc.GetFloat(DecayKnob);
-        env_gen->SweepValue = hw.adc.GetFloat(SweepKnob);
+        // OutAmp volume knob
+        VolumeValue = hw.adc.GetFloat(VolumeKnob);
 
         // hw.PrintLine("Volume: " FLT_FMT3,
         //              FLT_VAR3(hw.adc.GetFloat(VolumeKnob)));
