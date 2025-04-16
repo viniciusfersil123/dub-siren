@@ -178,7 +178,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
         // Set Decay Envelope trigger 
         if (env_gen->triggers.AnyButtonPressed()) {
-            lfo->
+            lfo->ResetPhaseAll();
             env_gen->decay_env.Retrigger();
         }
 
