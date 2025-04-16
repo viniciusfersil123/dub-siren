@@ -22,9 +22,11 @@ void init_knobs()
 
 void init_components()
 {
+    triggers = new Triggers();
+    env_gen = new EnvelopeGenerator();
+    lfo = new Lfo();
     vco = new Vco();
     vcf = new Vcf();
-    env_gen = new EnvelopeGenerator();
 }
 // Init functions
 
@@ -58,30 +60,34 @@ float Vcf::Process(float in)
 
 
 
-// Envelopes functions
-void Envelopes::SetAmpAll(float amp)
+// Lfo functions
+void Lfo::SetAmpAll(float amp)
 {
     for (int i = 0; i < 4; i++)
         osc[i].SetAmp(amp);
 }
 
-void Envelopes::SetFreqAll(float freq)
+void Lfo::SetFreqAll(float freq)
 {
     for (int i = 0; i < 4; i++)
         osc[i].SetFreq(freq);
 }
 
-float Envelopes::ProcessAll()
+void Lfo::ResetPhaseAll()
+{
+    for (int i = 0; i < 4; i++)
+        osc[i].Reset();
+}
+
+float Lfo::ProcessAll()
 {
     // Process all 4 envelopes and store in value array
     for (int i = 0; i < 4; i++)
-    {
         value[i] = osc[i].Process();
-    }
 
     return value[env_gen->triggers.GetActiveEnvelope()];
 }
-// Envelopes functions
+// Lfo functions
 
 
 
@@ -152,8 +158,7 @@ bool SweepToTuneButton::Pressed()
 // EnvelopeGenerator functions
 float EnvelopeGenerator::Process()
 {
-
-    return (this->decay_env.Process() * this->envelopes.ProcessAll());
+    return (this->decay_env.Process() * lfo->ProcessAll());
 }
 // EnvelopeGenerator functions
 
@@ -173,8 +178,10 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         env_gen->decay_env.SetDecayTime(env_gen->decay_env.DecayValue);
 
         // Set Decay Envelope trigger 
-        if (env_gen->triggers.AnyButtonPressed())
+        if (env_gen->triggers.AnyButtonPressed()) {
+            lfo->
             env_gen->decay_env.Retrigger();
+        }
 
         // Set LFO parameters
         env_gen->envelopes.SetAmpAll(env_gen->envelopes.DepthValue);
@@ -191,7 +198,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         }
         output *= vco->Process();
 
-        // Set and apply VCF low pass filter
+        // Set and apply VCF low-pass filter
         vcf->SetFreq((20.0f + 12000.0f * env_gen->SweepValue) / hw.AudioSampleRate()); // Must be normalized to sample rate
         output = vcf->Process(output);
         

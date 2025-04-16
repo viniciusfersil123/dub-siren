@@ -12,9 +12,11 @@ DaisySeed hw;
 float VolumeValue;
 
 // Dub Siren components
+Triggers* triggers;
+EnvelopeGenerator* env_gen;
+Lfo* lfo;
 Vco* vco;
 Vcf* vcf;
-EnvelopeGenerator* env_gen;
 
 enum AdcChannel
 {
@@ -59,10 +61,10 @@ private:
     OnePole filter;
 };
 
-class Envelopes
+class Lfo
 {
 public:
-    Envelopes()
+    Lfo()
     {
         osc[0].Init(hw.AudioSampleRate());
         osc[0].SetWaveform(Oscillator::WAVE_SIN);
@@ -79,6 +81,7 @@ public:
 
     void SetAmpAll(float amp);
     void SetFreqAll(float freq);
+    void ResetPhaseAll();
     float ProcessAll();
 private:
     Oscillator osc[4];
@@ -150,14 +153,13 @@ private:
 class EnvelopeGenerator
 {
 public:
-    EnvelopeGenerator() { }
+    EnvelopeGenerator()
+    {
+    }
 
     float SweepValue;
-
     float Process();
 private:
-    Triggers triggers;
-    Envelopes envelopes;
     DecayEnvelope decay_env;
     SweepToTuneButton sweep_to_tune_button;
 };
