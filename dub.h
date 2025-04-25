@@ -6,18 +6,8 @@
 using namespace daisy;
 using namespace daisysp;
 
-DaisySeed hw;
-
-// Knob values
-float VolumeValue;
-
-// Dub Siren components
-EnvelopeGenerator* env_gen;
-Triggers* triggers;
-Lfo* lfo;
-Vco* vco;
-Vcf* vcf;
-
+// Daisy setup
+KnobInitializerDaisy* knobInit;
 enum AdcChannel
 {
     VolumeKnob = 0,
@@ -26,27 +16,18 @@ enum AdcChannel
     TuneKnob,
     SweepKnob,
     RateKnob,
-    VcfKnob,
     NUM_ADC_CHANNELS
 };
 
 
-
-// EnvelopeGenerator
-class EnvelopeGenerator
-{
-public:
-    EnvelopeGenerator()
-    {
-    }
-
-    float SweepValue;
-    float Process();
-private:
-    DecayEnvelope decay_env;
-    SweepToTuneButton sweep_to_tune_button;
-};
-// EnvelopeGenerator
+// Dub Siren components
+DecayEnvelope* decay_env;
+Sweep* sweep;
+Triggers* triggers;
+Lfo* lfo;
+Vco* vco;
+Vcf* vcf;
+OutAmp* out_amp;
 
 
 
@@ -56,7 +37,7 @@ class DecayEnvelope
 public:
     DecayEnvelope()
     {
-        decay_env.Init(hw.AudioSampleRate(), hw.AudioBlockSize());
+        this->Init();
         decay_env.SetAttackTime(0);
         decay_env.SetDecayTime(0);
         decay_env.SetSustainLevel(0);
@@ -64,35 +45,35 @@ public:
         // decay_env.SetTime();
     }
 
+    Adsr decay_env;
     float DecayValue;
 
+    void Init();
     void SetDecayTime(float time);
     float Process();
     void Retrigger();
-private:
-    Adsr decay_env;
 };
 // DecayEnvelope
 
 
 
-// SweepToTuneButton
-class SweepToTuneButton
+// Sweep
+class Sweep
 {
 public:
-    SweepToTuneButton()
+    Sweep()
     {
-        button.Init(hw.GetPin(32),
-                    50
-                );
+        this->Init();
     }
 
+    float SweepValue;
+    Switch SweepToTuneButton;
+
+    void Init();
     void Debounce();
     bool Pressed();
-private:
-    Switch button;
 };
-// SweepToTuneButton
+// Sweep
 
 
 
@@ -102,21 +83,18 @@ class Triggers
 public:
     Triggers()
     {
-        for (int i = 0; i < 4; i++)
-        {
-            button[i].Init(hw.GetPin(28 + i), 50);
-            buttonState[i] = false;
-        }
-        activeEnvelopeIndex = 0;
+        this->Init();
     }
 
-    void DebounceAllButtons();
-    const int GetActiveEnvelopeIndex();
-    const bool AnyButtonPressed();
-private:
     Switch button[4];
     bool buttonState[4];
     int activeEnvelopeIndex;
+    Switch BankSelect;
+
+    void Init();
+    void DebounceAllButtons();
+    const int GetActiveEnvelopeIndex();
+    const bool AnyButtonPressed();
 };
 // Triggers
 
@@ -128,31 +106,24 @@ class Lfo
 public:
     Lfo()
     {
-        osc[0].Init(hw.AudioSampleRate());
+        this->Init();
         osc[0].SetWaveform(Oscillator::WAVE_SIN);
-
-        osc[1].Init(hw.AudioSampleRate());
         osc[1].SetWaveform(Oscillator::WAVE_POLYBLEP_SAW);
-
-        osc[2].Init(hw.AudioSampleRate());
         osc[2].SetWaveform(Oscillator::WAVE_POLYBLEP_SQUARE);
-        
-        osc[3].Init(hw.AudioSampleRate());
         osc[3].SetWaveform(Oscillator::WAVE_POLYBLEP_TRI);
     }
 
+    float DepthValue;
+    float RateValue;
+    Oscillator osc[4];
+    float value[4];
+
+    void Init();
     void SetAmpAll(float amp);
     void SetFreqAll(float freq);
     void ResetPhaseAll();
     float ProcessAll();
-private:
-    Oscillator osc[4];
-    float value[4];
-    float DepthValue;
-    float RateValue;
-};
-// Lfo
-
+}; // Lfo
 
 
 // Vco
@@ -162,12 +133,13 @@ public:
     Oscillator osc;
     float TuneValue;
 
-    Vco ()
+    Vco()
     {
-        osc.Init(hw.AudioSampleRate());
+        this->Init();
         osc.SetWaveform(Oscillator::WAVE_POLYBLEP_SQUARE);
     }
 
+    void Init();
     void SetFreq(float freq);
     float Process();
 };
@@ -185,15 +157,34 @@ public:
         filter.SetFilterMode(OnePole::FILTER_MODE_LOW_PASS);
     }
     
+    OnePole filter;
+
     void SetFreq(float freq);
     float Process(float in);
-private:
-    OnePole filter;
 };
 // Vcf
 
 
 
+// OutAmp
+class OutAmp
+{
+public:
+    OutAmp()
+    {
+    }
+
+    float VolumeValue;
+};
+// OutAmp
+
+
+
 // Function declarations
-void init_knobs();
-void init_components();
+void InitComponents();
+
+class KnobInitializer
+{
+public:
+    virtual void InitKnobs() = 0;
+};
