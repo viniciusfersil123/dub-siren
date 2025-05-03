@@ -6,8 +6,9 @@
 using namespace daisy;
 using namespace daisysp;
 
+DaisySeed hw;
+
 // Daisy setup
-KnobInitializerDaisy* knobInit;
 enum AdcChannel
 {
     VolumeKnob = 0,
@@ -19,18 +20,6 @@ enum AdcChannel
     NUM_ADC_CHANNELS
 };
 
-
-// Dub Siren components
-DecayEnvelope* decay_env;
-Sweep* sweep;
-Triggers* triggers;
-Lfo* lfo;
-Vco* vco;
-Vcf* vcf;
-OutAmp* out_amp;
-
-
-
 // DecayEnvelope
 class DecayEnvelope
 {
@@ -38,11 +27,10 @@ public:
     DecayEnvelope()
     {
         this->Init();
-        decay_env.SetAttackTime(0);
-        decay_env.SetDecayTime(0);
-        decay_env.SetSustainLevel(0);
-        decay_env.SetReleaseTime(0);
-        // decay_env.SetTime();
+        decay_env.SetTime(ADSR_SEG_ATTACK, .1f);
+        decay_env.SetTime(ADSR_SEG_DECAY, .0f);
+        decay_env.SetSustainLevel(1.0f);
+        decay_env.SetTime(ADSR_SEG_RELEASE, .1f);
     }
 
     Adsr decay_env;
@@ -50,7 +38,7 @@ public:
 
     void Init();
     void SetDecayTime(float time);
-    float Process();
+    float Process(bool gate, float in);
     void Retrigger();
 };
 // DecayEnvelope
@@ -63,15 +51,11 @@ class Sweep
 public:
     Sweep()
     {
-        this->Init();
+        this->SweepValue = 0;
     }
 
     float SweepValue;
-    Switch SweepToTuneButton;
-
-    void Init();
-    void Debounce();
-    bool Pressed();
+    bool IsSweepToTuneActive();
 };
 // Sweep
 
@@ -83,18 +67,12 @@ class Triggers
 public:
     Triggers()
     {
-        this->Init();
     }
 
-    Switch button[4];
-    bool buttonState[4];
-    int activeEnvelopeIndex;
-    Switch BankSelect;
-
-    void Init();
-    void DebounceAllButtons();
-    const int GetActiveEnvelopeIndex();
-    const bool AnyButtonPressed();
+    bool IsBankSelectActive();
+    bool Triggered();
+    bool Pressed();
+    int ActiveIndex();
 };
 // Triggers
 
@@ -116,7 +94,7 @@ public:
     float DepthValue;
     float RateValue;
     Oscillator osc[4];
-    float value[4];
+    float values[4][2]; // oscillator value and modsig value
 
     void Init();
     void SetAmpAll(float amp);
@@ -130,18 +108,20 @@ public:
 class Vco
 {
 public:
-    Oscillator osc;
-    float TuneValue;
-
     Vco()
     {
         this->Init();
-        osc.SetWaveform(Oscillator::WAVE_POLYBLEP_SQUARE);
+        osc.SetWaveform(Oscillator::WAVE_POLYBLEP_TRI);
+        osc.SetAmp(1.0f);
+        osc.SetFreq(440.0f);
     }
+
+    Oscillator osc;
+    float TuneValue;
 
     void Init();
     void SetFreq(float freq);
-    float Process();
+    float Process(float in);
 };
 // Vco
 
@@ -172,9 +152,13 @@ class OutAmp
 public:
     OutAmp()
     {
+        this->VolumeValue = 0.0f;
     }
 
     float VolumeValue;
+
+    void SetVolume(float volume);
+    float Process(float in);
 };
 // OutAmp
 
@@ -183,8 +167,49 @@ public:
 // Function declarations
 void InitComponents();
 
-class KnobInitializer
+class KnobHandler
 {
 public:
-    virtual void InitKnobs() = 0;
+    virtual void InitAll();
+    virtual void UpdateAll();
+};
+
+class KnobHandlerDaisy : public KnobHandler 
+{
+public:
+    void InitAll() override;
+    void UpdateAll() override;
+};
+
+class ButtonHandler
+{
+public:
+    ButtonHandler()
+    {
+        for (int i = 0; i < 4; i++) { this->triggersStates[i] = false; }
+        this->triggered = false;
+        this->bankSelectState = false;
+        this->sweepToTuneState = false;
+    }
+
+    bool triggersStates[4];
+    bool triggered;
+    bool bankSelectState;
+    bool sweepToTuneState;
+
+    virtual void InitAll();
+    virtual void DebounceAll();
+    virtual void UpdateAll();
+};
+
+class ButtonHandlerDaisy : public ButtonHandler
+{
+public:
+    Switch triggers[4];
+    Switch bankSelect;
+    Switch sweepToTune;
+
+    void InitAll() override;
+    void DebounceAll() override;
+    void UpdateAll() override;
 };
