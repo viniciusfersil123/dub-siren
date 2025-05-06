@@ -29,7 +29,7 @@ using namespace daisysp;
 // Daisy setup components
 KnobHandlerDaisy* knob_handler = new KnobHandlerDaisy();
 ButtonHandlerDaisy* button_handler = new ButtonHandlerDaisy();
-int SR = 0;
+int SAMPLE_RATE = 0, BLOCK_SIZE = 0;
 
 // Dub Siren components
 DecayEnvelope* decay_env;
@@ -97,16 +97,9 @@ void ButtonHandlerDaisy::UpdateAll()
 {
     // Update trigger states
     for (int i = 0; i < 4; i++) {
-        this->triggersStates[i] = this->triggers[i].Pressed();
-    }
-
-    // Check if any trigger is pressed
-    this->triggered = false;
-    for (int i = 0; i < 4; i++) {
-        if (this->triggers[i].RisingEdge()) {
-            this->triggered = true;
-            break;
-        }
+        this->triggersStates[i][0] = this->triggers[i].RisingEdge();
+        this->triggersStates[i][1] = this->triggers[i].Pressed();
+        this->triggersStates[i][2] = this->triggers[i].FallingEdge();
     }
 
     // Update bank select and sweep to tune states
@@ -122,13 +115,13 @@ void ButtonHandlerDaisy::UpdateAll()
 
 
 // Init functions
-void InitComponents()
+void InitComponents(int sample_rate, int block_size)
 {
     triggers = new Triggers();
-    decay_env = new DecayEnvelope();
+    decay_env = new DecayEnvelope(sample_rate, block_size);
     sweep = new Sweep();
-    lfo = new Lfo();
-    vco = new Vco();
+    lfo = new Lfo(sample_rate);
+    vco = new Vco(sample_rate);
     vcf = new Vcf();
     out_amp = new OutAmp();
 }
@@ -137,19 +130,15 @@ void InitComponents()
 
 
 // DecayEnvelope functions
-void DecayEnvelope::Init()
-{
-    this->decay_env.Init(hw.AudioSampleRate(), hw.AudioBlockSize());
-}
-
 void DecayEnvelope::SetDecayTime(float time)
 {
     this->decay_env.SetTime(ADSR_SEG_RELEASE, time);
 }
 
-float DecayEnvelope::Process(bool gate, float in)
+float DecayEnvelope::Process(bool gate)
 {
-    return in * decay_env.Process(gate);
+    this->EnvelopeValue = this->decay_env.Process(gate);
+    return this->EnvelopeValue;
 }
 
 void DecayEnvelope::Retrigger()
@@ -161,15 +150,20 @@ void DecayEnvelope::Retrigger()
 
 
 // Triggers functions
-bool Triggers::IsBankSelectActive()
+int Triggers::ActiveIndex()
 {
-    return button_handler->bankSelectState;
+    for (int i = 0; i < 4; i++) {
+        if (button_handler->triggersStates[i][1])
+            return i;
+    }
+    return -1;
 }
 
 bool Triggers::Triggered()
 {
     for (int i = 0; i < 4; i++) {
-        if (button_handler->triggered) return true;
+        if (button_handler->triggersStates[i][0])
+            return true;
     }
     return false;
 }
@@ -177,19 +171,24 @@ bool Triggers::Triggered()
 bool Triggers::Pressed()
 {
     for (int i = 0; i < 4; i++) {
-        if (button_handler->triggers[i].Pressed())
+        if (button_handler->triggersStates[i][1])
             return true;
     }
     return false;
 }
 
-int Triggers::ActiveIndex()
+bool Triggers::Released()
 {
     for (int i = 0; i < 4; i++) {
-        if (button_handler->triggersStates[i])
-            return i;
+        if (button_handler->triggersStates[i][2])
+            return true;
     }
-    return -1;
+    return false;
+}
+
+bool Triggers::IsBankSelectActive()
+{
+    return button_handler->bankSelectState;
 }
 // Triggers functions
 
@@ -205,14 +204,6 @@ bool Sweep::IsSweepToTuneActive()
 
 
 // Lfo functions
-void Lfo::Init()
-{
-    this->osc[0].Init(hw.AudioSampleRate());
-    this->osc[1].Init(hw.AudioSampleRate());
-    this->osc[2].Init(hw.AudioSampleRate());
-    this->osc[3].Init(hw.AudioSampleRate());
-}
-
 void Lfo::SetAmpAll(float amp)
 {
     for (int i = 0; i < 4; i++)
@@ -245,8 +236,7 @@ float Lfo::ProcessAll()
 
     // Return the value of the active trigger
     int activeIndex = triggers->ActiveIndex();
-    if (activeIndex == -1)
-        return 0.0f; // No active trigger
+    if (activeIndex == -1) return 0; // No active trigger
     return this->values[activeIndex][1];
 }
 // Lfo functions
@@ -254,19 +244,14 @@ float Lfo::ProcessAll()
 
 
 // Vco functions
-void Vco::Init()
-{
-    this->osc.Init(hw.AudioSampleRate());
-}
-
 void Vco::SetFreq(float freq)
 {
     this->osc.SetFreq(freq);
 }
 
-float Vco::Process(float in)
+float Vco::Process()
 {
-    return in * this->osc.Process();
+    return this->osc.Process();
 }
 // Vco functions
 
@@ -346,20 +331,27 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 {
     for(size_t i = 0; i < size; i++)
     {
-        float output = 0, lfo_output = 0; // MONO
+        float output = 0; // MONO
+        float adsr_output = 0;
+        float lfo_output = 0;
+        float vco_output = 0;
+        bool triggered = triggers->Triggered();
+        bool pressed = triggers->Pressed();
+        bool released = triggers->Released();
 
-        // // The LFO and Decay Envelope should reset when a trigger is pressed
-        if (triggers->Triggered()) {
+        // The LFO and Decay Envelope must reset when a trigger is triggered
+        if (triggered) {
             lfo->ResetPhaseAll();
             decay_env->Retrigger();
         }
 
         // Set and apply Decay Envelope
         decay_env->SetDecayTime(0.1f + (decay_env->DecayValue * 9.9f));
-        output = decay_env->Process(true, 1);
+        adsr_output = decay_env->Process(pressed);
+        output = adsr_output;
         
         // Set and apply LFO
-        lfo->SetFreqAll(20 * lfo->RateValue);
+        lfo->SetFreqAll(10 * lfo->RateValue);
         lfo->SetAmpAll(lfo->DepthValue);
         lfo_output = lfo->ProcessAll();
         output *= lfo_output;
@@ -373,13 +365,15 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // output = vco->Process(output);
 
         // Set and apply VCO
-        vco->SetFreq(30.0f + 9000.0f * vco->TuneValue);
-        output = vco->Process(output);
+        vco->SetFreq(30.0f + (9000.0f * vco->TuneValue));
+        vco_output = vco->Process();
+        output *= vco_output;
 
         // Set and apply VCF low-pass filter
-        // vcf->SetFreq((20.0f + (lfo_output * 12000.0f)) / SR); // Must be normalized to sample rate
-        // output = vcf->Process(output);
-        
+        vcf->SetFreq((20.0f + (sweep->SweepValue * 20000.0f)) / SAMPLE_RATE); // Must be normalized to sample rate
+        output = vcf->Process(output);
+        // TODO: Add the release behavior to the filter
+
         // Apply volume
         output = out_amp->Process(output);
 
@@ -394,11 +388,12 @@ int main(void)
     hw.Init();
     hw.SetAudioBlockSize(4); // number of samples handled per callback
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
-    SR = hw.AudioSampleRate();
+    SAMPLE_RATE = hw.AudioSampleRate();
+    BLOCK_SIZE = hw.AudioBlockSize();
 
     knob_handler->InitAll();
     button_handler->InitAll();
-    InitComponents();
+    InitComponents(SAMPLE_RATE, BLOCK_SIZE);
 
     hw.StartLog(true);
     hw.PrintLine("Daisy Dub Siren");
@@ -415,8 +410,9 @@ int main(void)
         // PrintKnobValues();
         // PrintButtonStates();
         // hw.PrintLine("Active Trigger: %d", triggers->ActiveIndex());
-        hw.PrintLine("LFO value: " FLT_FMT3, FLT_VAR3(lfo->values[triggers->ActiveIndex()][1]));
+        // hw.PrintLine("LFO value: " FLT_FMT3, FLT_VAR3(lfo->values[triggers->ActiveIndex()][1]));
+        // hw.PrintLine("ADSR value: " FLT_FMT3, FLT_VAR3(decay_env->decay_env.GetCurrentSegment()));
         // hw.PrintLine("");
-        // System::Delay(250);
+        // System::Delay(500);
     }
 }

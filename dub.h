@@ -6,6 +6,21 @@
 using namespace daisy;
 using namespace daisysp;
 
+// Constants
+#define VCO_WAVEFORM Oscillator::WAVE_SAW
+
+#define ADSR_ATTACK_TIME 1.0f
+#define ADSR_DECAY_TIME 0.1f
+#define ADSR_SUSTAIN_LEVEL 1.0f
+#define ADSR_RELEASE_TIME 10.0f
+
+#define LFO_0_WAVEFORM Oscillator::WAVE_SIN
+#define LFO_1_WAVEFORM Oscillator::WAVE_POLYBLEP_SAW
+#define LFO_2_WAVEFORM Oscillator::WAVE_SQUARE
+#define LFO_3_WAVEFORM Oscillator::WAVE_TRI
+
+#define VCF_FILTER OnePole::FILTER_MODE_LOW_PASS
+
 DaisySeed hw;
 
 // Daisy setup
@@ -24,21 +39,22 @@ enum AdcChannel
 class DecayEnvelope
 {
 public:
-    DecayEnvelope()
+    DecayEnvelope(int sample_rate, int block_size)
     {
-        this->Init();
-        decay_env.SetTime(ADSR_SEG_ATTACK, .1f);
-        decay_env.SetTime(ADSR_SEG_DECAY, .0f);
-        decay_env.SetSustainLevel(1.0f);
-        decay_env.SetTime(ADSR_SEG_RELEASE, .1f);
+        this->decay_env.Init(sample_rate, block_size);
+        this->decay_env.SetTime(ADSR_SEG_ATTACK, ADSR_ATTACK_TIME);
+        this->decay_env.SetTime(ADSR_SEG_DECAY, ADSR_DECAY_TIME);
+        this->decay_env.SetSustainLevel(ADSR_SUSTAIN_LEVEL);
+        this->decay_env.SetTime(ADSR_SEG_RELEASE, ADSR_RELEASE_TIME);
     }
 
     Adsr decay_env;
     float DecayValue;
+    float EnvelopeValue;
 
     void Init();
     void SetDecayTime(float time);
-    float Process(bool gate, float in);
+    float Process(bool gate);
     void Retrigger();
 };
 // DecayEnvelope
@@ -69,10 +85,11 @@ public:
     {
     }
 
-    bool IsBankSelectActive();
+    int ActiveIndex();
     bool Triggered();
     bool Pressed();
-    int ActiveIndex();
+    bool Released();
+    bool IsBankSelectActive();
 };
 // Triggers
 
@@ -82,13 +99,16 @@ public:
 class Lfo
 {
 public:
-    Lfo()
+    Lfo(int sample_rate)
     {
-        this->Init();
-        osc[0].SetWaveform(Oscillator::WAVE_SIN);
-        osc[1].SetWaveform(Oscillator::WAVE_POLYBLEP_SAW);
-        osc[2].SetWaveform(Oscillator::WAVE_POLYBLEP_SQUARE);
-        osc[3].SetWaveform(Oscillator::WAVE_POLYBLEP_TRI);
+        for (int i = 0; i < 4; i++) {
+            this->osc[i].Init(sample_rate);
+        }
+
+        this->osc[0].SetWaveform(LFO_0_WAVEFORM);
+        this->osc[1].SetWaveform(LFO_1_WAVEFORM);
+        this->osc[2].SetWaveform(LFO_2_WAVEFORM);
+        this->osc[3].SetWaveform(LFO_3_WAVEFORM);
     }
 
     float DepthValue;
@@ -108,12 +128,12 @@ public:
 class Vco
 {
 public:
-    Vco()
+    Vco(int sample_rate)
     {
-        this->Init();
-        osc.SetWaveform(Oscillator::WAVE_POLYBLEP_TRI);
-        osc.SetAmp(1.0f);
-        osc.SetFreq(440.0f);
+        this->osc.Init(sample_rate);
+        this->osc.SetWaveform(VCO_WAVEFORM);
+        this->osc.SetAmp(1.0f);
+        this->osc.SetFreq(440.0f);
     }
 
     Oscillator osc;
@@ -121,7 +141,7 @@ public:
 
     void Init();
     void SetFreq(float freq);
-    float Process(float in);
+    float Process();
 };
 // Vco
 
@@ -133,8 +153,8 @@ class Vcf
 public:
     Vcf()
     {
-        filter.Init();
-        filter.SetFilterMode(OnePole::FILTER_MODE_LOW_PASS);
+        this->filter.Init();
+        this->filter.SetFilterMode(VCF_FILTER);
     }
     
     OnePole filter;
@@ -165,7 +185,7 @@ public:
 
 
 // Function declarations
-void InitComponents();
+void InitComponents(int sample_rate, int block_size);
 
 class KnobHandler
 {
@@ -186,14 +206,18 @@ class ButtonHandler
 public:
     ButtonHandler()
     {
-        for (int i = 0; i < 4; i++) { this->triggersStates[i] = false; }
-        this->triggered = false;
+        for (int i = 0; i < 4; i++) {
+            this->triggersStates[i][0] = false; // index 0 is Triggered
+            this->triggersStates[i][1] = false; // index 1 is Pressed
+            this->triggersStates[i][2] = false; // index 2 is Released
+        }
         this->bankSelectState = false;
         this->sweepToTuneState = false;
     }
 
-    bool triggersStates[4];
-    bool triggered;
+    // There are 4 trigger buttons.
+    // Each one has 3 states (true of false): Triggered, Pressed, Released.
+    bool triggersStates[4][3];
     bool bankSelectState;
     bool sweepToTuneState;
 
