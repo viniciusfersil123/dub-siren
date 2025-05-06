@@ -132,7 +132,7 @@ void InitComponents(int sample_rate, int block_size)
 // DecayEnvelope functions
 void DecayEnvelope::SetDecayTime(float time)
 {
-    this->decay_env.SetTime(ADSR_SEG_RELEASE, time);
+    this->decay_env.SetTime(ADSR_SEG_DECAY, time);
 }
 
 float DecayEnvelope::Process(bool gate)
@@ -143,7 +143,7 @@ float DecayEnvelope::Process(bool gate)
 
 void DecayEnvelope::Retrigger()
 {
-    decay_env.Retrigger(true);
+    decay_env.Retrigger(false);
 }
 // DecayEnvelope functions
 
@@ -223,7 +223,7 @@ void Lfo::ResetPhaseAll()
         this->osc[i].Reset();
 }
 
-float Lfo::ProcessAll()
+std::pair<float, float> Lfo::ProcessAll()
 {
     // Process all 4 envelopes and store in value array
     for (int i = 0; i < 4; i++) {
@@ -236,8 +236,8 @@ float Lfo::ProcessAll()
 
     // Return the value of the active trigger
     int activeIndex = triggers->ActiveIndex();
-    if (activeIndex == -1) return 0; // No active trigger
-    return this->values[activeIndex][1];
+    if (activeIndex == -1) return std::make_pair(0, 0); // No active trigger
+    return std::make_pair(this->values[activeIndex][0], this->values[activeIndex][1]);
 }
 // Lfo functions
 
@@ -333,7 +333,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
     {
         float output = 0; // MONO
         float adsr_output = 0;
-        float lfo_output = 0;
+        std::pair<float, float> lfo_output = std::make_pair(0, 0);
         float vco_output = 0;
         bool triggered = triggers->Triggered();
         bool pressed = triggers->Pressed();
@@ -346,15 +346,15 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         }
 
         // Set and apply Decay Envelope
-        decay_env->SetDecayTime(0.1f + (decay_env->DecayValue * 9.9f));
-        adsr_output = decay_env->Process(pressed);
+        decay_env->SetDecayTime(MIN_DECAY_TIME + (decay_env->DecayValue * (MAX_DECAY_TIME - MIN_DECAY_TIME)));
+        adsr_output = decay_env->Process(true);
         output = adsr_output;
         
         // Set and apply LFO
-        lfo->SetFreqAll(10 * lfo->RateValue);
+        lfo->SetFreqAll(LFO_MAX_FREQ * lfo->RateValue);
         lfo->SetAmpAll(lfo->DepthValue);
         lfo_output = lfo->ProcessAll();
-        output *= lfo_output;
+        output *= lfo_output.second; // modsig value
 
         // Set and apply VCO
         // if (!sweep->IsSweepToTuneActive()) { // FILTER
@@ -365,12 +365,12 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // output = vco->Process(output);
 
         // Set and apply VCO
-        vco->SetFreq(30.0f + (9000.0f * vco->TuneValue));
+        vco->SetFreq(((lfo_output.second + 1) / 2) * (VCO_MIN_FREQ + (VCO_MAX_FREQ * vco->TuneValue)));
         vco_output = vco->Process();
         output *= vco_output;
 
         // Set and apply VCF low-pass filter
-        vcf->SetFreq((20.0f + (sweep->SweepValue * 20000.0f)) / SAMPLE_RATE); // Must be normalized to sample rate
+        vcf->SetFreq((VCF_MIN_FREQ + (sweep->SweepValue * VCF_MAX_FREQ)) / SAMPLE_RATE); // Must be normalized to sample rate
         output = vcf->Process(output);
         // TODO: Add the release behavior to the filter
 
