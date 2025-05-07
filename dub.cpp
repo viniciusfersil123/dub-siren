@@ -143,7 +143,7 @@ float DecayEnvelope::Process(bool gate)
 
 void DecayEnvelope::Retrigger()
 {
-    decay_env.Retrigger(false);
+    decay_env.Retrigger(true);
 }
 // DecayEnvelope functions
 
@@ -335,6 +335,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         float adsr_output = 0;
         std::pair<float, float> lfo_output = std::make_pair(0, 0);
         float vco_output = 0;
+        float vco_modulation = 0;
         bool triggered = triggers->Triggered();
         bool pressed = triggers->Pressed();
         bool released = triggers->Released();
@@ -347,7 +348,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
         // Set and apply Decay Envelope
         decay_env->SetDecayTime(MIN_DECAY_TIME + (decay_env->DecayValue * (MAX_DECAY_TIME - MIN_DECAY_TIME)));
-        adsr_output = decay_env->Process(true);
+        adsr_output = decay_env->Process(pressed);
         output = adsr_output;
         
         // Set and apply LFO
@@ -365,7 +366,8 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // output = vco->Process(output);
 
         // Set and apply VCO
-        vco->SetFreq(((lfo_output.second + 1) / 2) * (VCO_MIN_FREQ + (VCO_MAX_FREQ * vco->TuneValue)));
+        vco_modulation = 0.5f * (lfo_output.second + 1);
+        vco->SetFreq(vco_modulation * (VCO_MIN_FREQ + (VCO_MAX_FREQ * vco->TuneValue)));
         vco_output = vco->Process();
         output *= vco_output;
 
@@ -395,7 +397,7 @@ int main(void)
     button_handler->InitAll();
     InitComponents(SAMPLE_RATE, BLOCK_SIZE);
 
-    hw.StartLog(true);
+    // hw.StartLog(true);
     hw.PrintLine("Daisy Dub Siren");
     hw.StartAudio(AudioCallback);
 

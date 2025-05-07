@@ -11,18 +11,18 @@ using namespace daisysp;
 #define VCO_MIN_FREQ 30.0f
 #define VCO_MAX_FREQ 9000.0f
 
-#define ADSR_ATTACK_TIME 5.0f
-#define ADSR_DECAY_TIME 10.0f
-#define ADSR_SUSTAIN_LEVEL 1.0f
-#define ADSR_RELEASE_TIME 5.0f
+#define ADSR_ATTACK_TIME 0.3f
+#define ADSR_DECAY_TIME 0.0f
+#define ADSR_SUSTAIN_LEVEL 0.0f
+#define ADSR_RELEASE_TIME 0.0f
 #define MIN_DECAY_TIME 0.1f
 #define MAX_DECAY_TIME 10.0f
 
 #define LFO_0_WAVEFORM Oscillator::WAVE_SIN
 #define LFO_1_WAVEFORM Oscillator::WAVE_SAW
 #define LFO_2_WAVEFORM Oscillator::WAVE_SQUARE
-#define LFO_3_WAVEFORM Oscillator::WAVE_TRI
-#define LFO_MIN_FREQ 0.5f
+#define LFO_3_WAVEFORM Oscillator::WAVE_RAMP
+#define LFO_MIN_FREQ 1.0f
 #define LFO_MAX_FREQ 20.0f
 
 #define VCF_FILTER OnePole::FILTER_MODE_LOW_PASS
