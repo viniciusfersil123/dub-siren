@@ -1,9 +1,5 @@
-t s# dub
+# Menis Dub Siren
 
-## Author
+Dub Siren desenvolvida por @haruo-gabriel e @viniciusfersil123 da Menis Tech.
 
-<!-- Insert Your Name Here -->
-
-## Description
-
-<!-- Describe your example here -->
+Inspirada no DS71 da Benidub.
