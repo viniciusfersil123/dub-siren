@@ -98,6 +98,7 @@ void ButtonHandlerDaisy::UpdateAll()
     // Update trigger states
     for (int i = 0; i < 4; i++) {
         this->triggersStates[i][0] = this->triggers[i].RisingEdge(); // acabou de ser pressionado
+        if (this->triggersStates[i][0]) this->LastIndex = i; // atualiza o último índice
         this->triggersStates[i][1] = this->triggers[i].Pressed(); // está pressionado no momento 
         this->triggersStates[i][2] = this->triggers[i].FallingEdge(); // acabou de ser solto
     }
@@ -150,14 +151,6 @@ void DecayEnvelope::Retrigger()
 
 
 // Triggers functions
-void Triggers::UpdateLastIndex()
-{
-    for (int i = 0; i < 4; i++) {
-        if (button_handler->triggersStates[i][0])
-            this->LastIndex = i;
-    }
-}
-
 bool Triggers::Triggered()
 {
     for (int i = 0; i < 4; i++) {
@@ -234,7 +227,7 @@ std::pair<float, float> Lfo::ProcessAll()
     }
 
     // Return the value of the active trigger
-    int index = triggers->LastIndex;
+    int index = button_handler->LastIndex;
     return std::make_pair(this->values[index][0], this->values[index][1]);
 }
 // Lfo functions
@@ -339,7 +332,6 @@ void AudioCallback(AudioHandle::InputBuffer  in,
     for(size_t i = 0; i < size; i++)
     {
         bool triggered = triggers->Triggered(), pressed = triggers->Pressed();
-        triggers->UpdateLastIndex();
 
         // The LFO and Decay Envelope must reset when a trigger is triggered
         if (triggered) {
@@ -390,8 +382,8 @@ int main(void)
     button_handler->InitAll();
     InitComponents(SAMPLE_RATE, BLOCK_SIZE);
 
-    hw.StartLog(true);
-    hw.PrintLine("Daisy Dub Siren");
+    // hw.StartLog(true);
+    // hw.PrintLine("Daisy Dub Siren");
     hw.StartAudio(AudioCallback);
 
     while(1)
@@ -404,12 +396,8 @@ int main(void)
 
         // PrintKnobValues();
         // PrintButtonStates();
-        PrintOutputs();
-        // hw.PrintLine("Active Trigger: %d", triggers->ActiveIndex());
-        // hw.PrintLine("LFO value: " FLT_FMT3, FLT_VAR3(lfo->values[triggers->ActiveIndex()][1]));
-        // hw.PrintLine("Envelope value: " FLT_FMT3, FLT_VAR3(envelope->EnvelopeValue));
-        // hw.PrintLine("Current segment: %d", envelope->envelope.GetCurrentSegment());
-        // hw.PrintLine("");
-        System::Delay(10);
+        // PrintOutputs();
+        // hw.PrintLine("Active Trigger: %d", triggers->LastIndex);
+        // System::Delay(10);
     }
 }

@@ -91,9 +91,6 @@ public:
     {
     }
 
-    int LastIndex;
-
-    void UpdateLastIndex();
     bool Triggered();
     bool Pressed();
     bool Released();
@@ -219,8 +216,10 @@ public:
             this->triggersStates[i][1] = false; // index 1 is Pressed
             this->triggersStates[i][2] = false; // index 2 is Released
         }
+        this->LastIndex = 0;
         this->bankSelectState = false;
         this->sweepToTuneState = false;
+
     }
 
     // There are 4 trigger buttons.
@@ -228,6 +227,7 @@ public:
     bool triggersStates[4][3];
     bool bankSelectState;
     bool sweepToTuneState;
+    int LastIndex;
 
     virtual void InitAll();
     virtual void DebounceAll();
