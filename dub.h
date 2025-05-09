@@ -12,11 +12,10 @@ using namespace daisysp;
 #define VCO_MAX_FREQ 9000.0f
 
 #define ADSR_ATTACK_TIME 0.3f
-#define ADSR_DECAY_TIME 0.0f
-#define ADSR_SUSTAIN_LEVEL 0.0f
-#define ADSR_RELEASE_TIME 0.0f
-#define MIN_DECAY_TIME 0.1f
-#define MAX_DECAY_TIME 10.0f
+#define ADSR_DECAY_TIME 0.1f
+#define ADSR_SUSTAIN_LEVEL 1.0f
+#define ADSR_RELEASE_TIME 10.0f
+#define ADSR_MIN_RELEASE_TIME 0.1f
 
 #define LFO_0_WAVEFORM Oscillator::WAVE_SIN
 #define LFO_1_WAVEFORM Oscillator::WAVE_SAW
@@ -49,19 +48,19 @@ class DecayEnvelope
 public:
     DecayEnvelope(int sample_rate, int block_size)
     {
-        this->decay_env.Init(sample_rate, block_size);
-        this->decay_env.SetTime(ADSR_SEG_ATTACK, ADSR_ATTACK_TIME);
-        this->decay_env.SetTime(ADSR_SEG_DECAY, ADSR_DECAY_TIME);
-        this->decay_env.SetSustainLevel(ADSR_SUSTAIN_LEVEL);
-        this->decay_env.SetTime(ADSR_SEG_RELEASE, ADSR_RELEASE_TIME);
+        this->envelope.Init(sample_rate, block_size);
+        this->envelope.SetTime(ADSR_SEG_ATTACK, ADSR_ATTACK_TIME);
+        this->envelope.SetTime(ADSR_SEG_DECAY, ADSR_DECAY_TIME);
+        this->envelope.SetTime(ADSR_SEG_RELEASE, ADSR_RELEASE_TIME);
+        this->envelope.SetSustainLevel(ADSR_SUSTAIN_LEVEL);
     }
 
-    Adsr decay_env;
-    float DecayValue;
-    float EnvelopeValue;
+    Adsr envelope;
+    float ReleaseValue; // Knob value from 0.0f to 1.0f
+    float EnvelopeValue; // Current envelope value from 0.0f to 1.0f
 
     void Init();
-    void SetDecayTime(float time);
+    void SetReleaseTime(float time);
     float Process(bool gate);
     void Retrigger();
 };

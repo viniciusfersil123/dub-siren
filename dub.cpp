@@ -13,8 +13,7 @@ Tune   | 24
 Sweep  | 25
 Rate   | 26
 
-BUTTON      | PIN NUMBER
-------------------------
+BUTTON      | PIN NUMBER ------------------------
 Trigger 1   | 27
 Trigger 2   | 28
 Trigger 3   | 29
@@ -22,7 +21,6 @@ Trigger 4   | 30
 BankSelect  | 31
 SweepToTune | 32
 */
-
 using namespace daisy;
 using namespace daisysp;
 
@@ -32,7 +30,7 @@ ButtonHandlerDaisy* button_handler = new ButtonHandlerDaisy();
 int SAMPLE_RATE = 0, BLOCK_SIZE = 0;
 
 // Dub Siren components
-DecayEnvelope* decay_env;
+DecayEnvelope* envelope;
 Sweep* sweep;
 Triggers* triggers;
 Lfo* lfo;
@@ -61,7 +59,7 @@ void KnobHandlerDaisy::UpdateAll()
     vco->TuneValue = hw.adc.GetFloat(TuneKnob);
 
     // Decay Envelope knobs
-    decay_env->DecayValue = hw.adc.GetFloat(DecayKnob);
+    envelope->ReleaseValue = hw.adc.GetFloat(DecayKnob);
     sweep->SweepValue = hw.adc.GetFloat(SweepKnob);
 
     // LFO depth and rate knobs
@@ -97,9 +95,9 @@ void ButtonHandlerDaisy::UpdateAll()
 {
     // Update trigger states
     for (int i = 0; i < 4; i++) {
-        this->triggersStates[i][0] = this->triggers[i].RisingEdge();
-        this->triggersStates[i][1] = this->triggers[i].Pressed();
-        this->triggersStates[i][2] = this->triggers[i].FallingEdge();
+        this->triggersStates[i][0] = this->triggers[i].RisingEdge(); // acabou de ser pressionado
+        this->triggersStates[i][1] = this->triggers[i].Pressed(); // está pressionado no momento 
+        this->triggersStates[i][2] = this->triggers[i].FallingEdge(); // acabou de ser solto
     }
 
     // Update bank select and sweep to tune states
@@ -118,7 +116,7 @@ void ButtonHandlerDaisy::UpdateAll()
 void InitComponents(int sample_rate, int block_size)
 {
     triggers = new Triggers();
-    decay_env = new DecayEnvelope(sample_rate, block_size);
+    envelope = new DecayEnvelope(sample_rate, block_size);
     sweep = new Sweep();
     lfo = new Lfo(sample_rate);
     vco = new Vco(sample_rate);
@@ -130,20 +128,20 @@ void InitComponents(int sample_rate, int block_size)
 
 
 // DecayEnvelope functions
-void DecayEnvelope::SetDecayTime(float time)
+void DecayEnvelope::SetReleaseTime(float time)
 {
-    this->decay_env.SetTime(ADSR_SEG_DECAY, time);
+    this->envelope.SetTime(ADSR_SEG_RELEASE, time);
 }
 
 float DecayEnvelope::Process(bool gate)
 {
-    this->EnvelopeValue = this->decay_env.Process(gate);
+    this->EnvelopeValue = this->envelope.Process(gate);
     return this->EnvelopeValue;
 }
 
 void DecayEnvelope::Retrigger()
 {
-    decay_env.Retrigger(true);
+    envelope.Retrigger(true);
 }
 // DecayEnvelope functions
 
@@ -298,7 +296,7 @@ void PrintKnobValues()
     hw.PrintLine("");
 
     // hw.Print("Volume: " FLT_FMT3, FLT_VAR3(out_amp->VolumeValue));
-    // hw.Print("   Decay:  " FLT_FMT3, FLT_VAR3(decay_env->DecayValue));
+    // hw.Print("   Decay:  " FLT_FMT3, FLT_VAR3(envelope->ReleaseValue));
     // hw.Print("   Depth:  " FLT_FMT3, FLT_VAR3(lfo->DepthValue));
     // hw.PrintLine("");
     // hw.Print("Tune:   " FLT_FMT3, FLT_VAR3(vco->TuneValue));
@@ -313,8 +311,8 @@ void PrintButtonStates()
     {
         hw.Print("Trigger %d: %d %d %d | ",
             i + 1,
-            button_handler->triggers[i].Pressed(),
             button_handler->triggers[i].RisingEdge(),
+            button_handler->triggers[i].Pressed(),
             button_handler->triggers[i].FallingEdge()
         );
     }
@@ -331,24 +329,23 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 {
     for(size_t i = 0; i < size; i++)
     {
-        float output = 0; // MONO
-        float adsr_output = 0;
+        float output; // MONO
+        float adsr_output;
         std::pair<float, float> lfo_output = std::make_pair(0, 0);
         float vco_output = 0;
         float vco_modulation = 0;
         bool triggered = triggers->Triggered();
         bool pressed = triggers->Pressed();
-        bool released = triggers->Released();
 
         // The LFO and Decay Envelope must reset when a trigger is triggered
         if (triggered) {
             lfo->ResetPhaseAll();
-            decay_env->Retrigger();
+            envelope->Retrigger();
         }
 
         // Set and apply Decay Envelope
-        decay_env->SetDecayTime(MIN_DECAY_TIME + (decay_env->DecayValue * (MAX_DECAY_TIME - MIN_DECAY_TIME)));
-        adsr_output = decay_env->Process(pressed);
+        envelope->SetReleaseTime(ADSR_MIN_RELEASE_TIME + (envelope->ReleaseValue * (ADSR_RELEASE_TIME - ADSR_MIN_RELEASE_TIME)));
+        adsr_output = envelope->Process(pressed);
         output = adsr_output;
         
         // Set and apply LFO
@@ -388,7 +385,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 int main(void)
 {
     hw.Init();
-    hw.SetAudioBlockSize(4); // number of samples handled per callback
+    hw.SetAudioBlockSize(4);
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
     SAMPLE_RATE = hw.AudioSampleRate();
     BLOCK_SIZE = hw.AudioBlockSize();
@@ -413,7 +410,8 @@ int main(void)
         // PrintButtonStates();
         // hw.PrintLine("Active Trigger: %d", triggers->ActiveIndex());
         // hw.PrintLine("LFO value: " FLT_FMT3, FLT_VAR3(lfo->values[triggers->ActiveIndex()][1]));
-        // hw.PrintLine("ADSR value: " FLT_FMT3, FLT_VAR3(decay_env->decay_env.GetCurrentSegment()));
+        // hw.PrintLine("Envelope value: " FLT_FMT3, FLT_VAR3(envelope->EnvelopeValue));
+        // hw.PrintLine("Current segment: %d", envelope->envelope.GetCurrentSegment());
         // hw.PrintLine("");
         // System::Delay(500);
     }
