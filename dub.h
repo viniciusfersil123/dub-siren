@@ -13,9 +13,9 @@ using namespace daisysp;
 
 #define ADSR_ATTACK_TIME 0.3f
 #define ADSR_DECAY_TIME 0.1f
-#define ADSR_SUSTAIN_LEVEL 1.0f
-#define ADSR_RELEASE_TIME 10.0f
-#define ADSR_MIN_RELEASE_TIME 0.1f
+#define ADSR_SUSTAIN_LEVEL 1.f
+#define ADSR_RELEASE_TIME 10.f
+#define ADSR_MIN_RELEASE_TIME 1.f
 
 #define LFO_0_WAVEFORM Oscillator::WAVE_SIN
 #define LFO_1_WAVEFORM Oscillator::WAVE_SAW
@@ -25,7 +25,7 @@ using namespace daisysp;
 #define LFO_MAX_FREQ 20.0f
 
 #define VCF_FILTER OnePole::FILTER_MODE_LOW_PASS
-#define VCF_MIN_FREQ 20.0f
+#define VCF_MIN_FREQ 100.0f
 #define VCF_MAX_FREQ 20000.0f
 
 DaisySeed hw;
@@ -59,7 +59,6 @@ public:
     float ReleaseValue; // Knob value from 0.0f to 1.0f
     float EnvelopeValue; // Current envelope value from 0.0f to 1.0f
 
-    void Init();
     void SetReleaseTime(float time);
     float Process(bool gate);
     void Retrigger();
@@ -92,7 +91,9 @@ public:
     {
     }
 
-    int ActiveIndex();
+    int LastIndex;
+
+    void UpdateLastIndex();
     bool Triggered();
     bool Pressed();
     bool Released();

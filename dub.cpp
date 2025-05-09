@@ -28,6 +28,8 @@ using namespace daisysp;
 KnobHandlerDaisy* knob_handler = new KnobHandlerDaisy();
 ButtonHandlerDaisy* button_handler = new ButtonHandlerDaisy();
 int SAMPLE_RATE = 0, BLOCK_SIZE = 0;
+float output, adsr_output, vco_output, vco_modulation;
+std::pair<float, float> lfo_output = std::make_pair(0, 0);
 
 // Dub Siren components
 DecayEnvelope* envelope;
@@ -148,13 +150,12 @@ void DecayEnvelope::Retrigger()
 
 
 // Triggers functions
-int Triggers::ActiveIndex()
+void Triggers::UpdateLastIndex()
 {
     for (int i = 0; i < 4; i++) {
-        if (button_handler->triggersStates[i][1])
-            return i;
+        if (button_handler->triggersStates[i][0])
+            this->LastIndex = i;
     }
-    return -1;
 }
 
 bool Triggers::Triggered()
@@ -226,16 +227,15 @@ std::pair<float, float> Lfo::ProcessAll()
     // Process all 4 envelopes and store in value array
     for (int i = 0; i < 4; i++) {
         // Based on the Tremolo.cpp example in daisysp
-        this->values[i][0] = this->osc[i].Process();
+        this->values[i][0] = this->osc[i].Process(); // LFO value
 
-        float dc_os_ = 0.5f * (1 - fclamp(this->DepthValue, 0.f, 1.f));
-        this->values[i][1] = dc_os_ + this->values[i][0];
+        float dc_offset = 0.5f * (1 - fclamp(this->DepthValue, 0.f, 1.f));
+        this->values[i][1] = dc_offset + this->values[i][0]; // Modulation signal value
     }
 
     // Return the value of the active trigger
-    int activeIndex = triggers->ActiveIndex();
-    if (activeIndex == -1) return std::make_pair(0, 0); // No active trigger
-    return std::make_pair(this->values[activeIndex][0], this->values[activeIndex][1]);
+    int index = triggers->LastIndex;
+    return std::make_pair(this->values[index][0], this->values[index][1]);
 }
 // Lfo functions
 
@@ -318,6 +318,15 @@ void PrintButtonStates()
     }
     hw.PrintLine("");
 }
+
+void PrintOutputs()
+{
+    hw.PrintLine("ADSR: " FLT_FMT3 " | LFO: " FLT_FMT3 " " FLT_FMT3 " | VCO: " FLT_FMT3,
+        FLT_VAR3(adsr_output),
+        FLT_VAR3(lfo_output.first), FLT_VAR3(lfo_output.first),
+        FLT_VAR3(vco_output)
+    );
+}
 // Debug functions
 
 
@@ -329,13 +338,8 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 {
     for(size_t i = 0; i < size; i++)
     {
-        float output; // MONO
-        float adsr_output;
-        std::pair<float, float> lfo_output = std::make_pair(0, 0);
-        float vco_output = 0;
-        float vco_modulation = 0;
-        bool triggered = triggers->Triggered();
-        bool pressed = triggers->Pressed();
+        bool triggered = triggers->Triggered(), pressed = triggers->Pressed();
+        triggers->UpdateLastIndex();
 
         // The LFO and Decay Envelope must reset when a trigger is triggered
         if (triggered) {
@@ -352,19 +356,11 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         lfo->SetFreqAll(LFO_MAX_FREQ * lfo->RateValue);
         lfo->SetAmpAll(lfo->DepthValue);
         lfo_output = lfo->ProcessAll();
-        output *= lfo_output.second; // modsig value
+        output *= lfo_output.second; // Modulation signal value
 
         // Set and apply VCO
-        // if (!sweep->IsSweepToTuneActive()) { // FILTER
-        //     vco->SetFreq(30.0f + 9000.0f * vco->TuneValue);
-        // } else { // FILTER + TUNE
-        //     vco->SetFreq(30.0f + 9000.0f * sweep->SweepValue);
-        // }
-        // output = vco->Process(output);
-
-        // Set and apply VCO
-        vco_modulation = 0.5f * (lfo_output.second + 1);
-        vco->SetFreq(vco_modulation * (VCO_MIN_FREQ + (VCO_MAX_FREQ * vco->TuneValue)));
+        vco_modulation = (lfo_output.first + 1) * 0.5f; // Normalize to [0,1]
+        vco->SetFreq((VCO_MIN_FREQ + (vco_modulation * VCO_MAX_FREQ * vco->TuneValue)));
         vco_output = vco->Process();
         output *= vco_output;
 
@@ -394,7 +390,7 @@ int main(void)
     button_handler->InitAll();
     InitComponents(SAMPLE_RATE, BLOCK_SIZE);
 
-    // hw.StartLog(true);
+    hw.StartLog(true);
     hw.PrintLine("Daisy Dub Siren");
     hw.StartAudio(AudioCallback);
 
@@ -408,11 +404,12 @@ int main(void)
 
         // PrintKnobValues();
         // PrintButtonStates();
+        PrintOutputs();
         // hw.PrintLine("Active Trigger: %d", triggers->ActiveIndex());
         // hw.PrintLine("LFO value: " FLT_FMT3, FLT_VAR3(lfo->values[triggers->ActiveIndex()][1]));
         // hw.PrintLine("Envelope value: " FLT_FMT3, FLT_VAR3(envelope->EnvelopeValue));
         // hw.PrintLine("Current segment: %d", envelope->envelope.GetCurrentSegment());
         // hw.PrintLine("");
-        // System::Delay(500);
+        System::Delay(10);
     }
 }
