@@ -18,8 +18,8 @@ using namespace daisysp;
 #define ADSR_MIN_RELEASE_TIME 1.f
 
 #define LFO_0_WAVEFORM Oscillator::WAVE_SIN
-#define LFO_1_WAVEFORM Oscillator::WAVE_SAW
-#define LFO_2_WAVEFORM Oscillator::WAVE_SQUARE
+#define LFO_1_WAVEFORM Oscillator::WAVE_SQUARE
+#define LFO_2_WAVEFORM Oscillator::WAVE_SAW
 #define LFO_3_WAVEFORM Oscillator::WAVE_RAMP
 #define LFO_MIN_FREQ 1.0f
 #define LFO_MAX_FREQ 20.0f
