@@ -25,8 +25,8 @@ using namespace daisysp;
 #define LFO_MAX_FREQ 20.0f
 
 #define VCF_FILTER OnePole::FILTER_MODE_LOW_PASS
-#define VCF_MIN_FREQ 100.0f
-#define VCF_MAX_FREQ 20000.0f
+#define VCF_MIN_FREQ 24.0f
+#define VCF_MAX_FREQ 15000.0f
 
 DaisySeed hw;
 
@@ -152,7 +152,7 @@ class Vcf
     {
         this->filter.Init(sample_rate);
         this->filter.SetDrive(50.0f); // No drive by default
-        this->filter.SetRes(0.9f);    // No resonance by default
+        this->filter.SetRes(0.95f);    // No resonance by default
     }
 
     Svf filter;
