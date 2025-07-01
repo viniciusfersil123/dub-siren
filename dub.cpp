@@ -25,20 +25,20 @@ using namespace daisy;
 using namespace daisysp;
 
 // Daisy setup components
-KnobHandlerDaisy* knob_handler = new KnobHandlerDaisy();
-ButtonHandlerDaisy* button_handler = new ButtonHandlerDaisy();
-int SAMPLE_RATE = 0, BLOCK_SIZE = 0;
-float output, adsr_output, vco_output, vco_modulation;
+KnobHandlerDaisy*       knob_handler   = new KnobHandlerDaisy();
+ButtonHandlerDaisy*     button_handler = new ButtonHandlerDaisy();
+int                     SAMPLE_RATE = 0, BLOCK_SIZE = 0;
+float                   output, adsr_output, vco_output, vco_modulation;
 std::pair<float, float> lfo_output = std::make_pair(0, 0);
 
 // Dub Siren components
 DecayEnvelope* envelope;
-Sweep* sweep;
-Triggers* triggers;
-Lfo* lfo;
-Vco* vco;
-Vcf* vcf;
-OutAmp* out_amp;
+Sweep*         sweep;
+Triggers*      triggers;
+Lfo*           lfo;
+Vco*           vco;
+Vcf*           vcf;
+OutAmp*        out_amp;
 
 // KnobHandler functions
 void KnobHandlerDaisy::InitAll()
@@ -62,7 +62,7 @@ void KnobHandlerDaisy::UpdateAll()
 
     // Decay Envelope knobs
     envelope->ReleaseValue = hw.adc.GetFloat(DecayKnob);
-    sweep->SweepValue = hw.adc.GetFloat(SweepKnob);
+    sweep->SweepValue      = hw.adc.GetFloat(SweepKnob);
 
     // LFO depth and rate knobs
     lfo->DepthValue = hw.adc.GetFloat(DepthKnob);
@@ -72,7 +72,6 @@ void KnobHandlerDaisy::UpdateAll()
     out_amp->VolumeValue = hw.adc.GetFloat(VolumeKnob);
 }
 // KnobHandler functions
-
 
 
 // ButtonHandler functions
@@ -88,7 +87,10 @@ void ButtonHandlerDaisy::InitAll()
 
 void ButtonHandlerDaisy::DebounceAll()
 {
-    for (int i = 0; i < 4; i++) { this->triggers[i].Debounce(); }
+    for(int i = 0; i < 4; i++)
+    {
+        this->triggers[i].Debounce();
+    }
     this->bankSelect.Debounce();
     this->sweepToTune.Debounce();
 }
@@ -96,23 +98,29 @@ void ButtonHandlerDaisy::DebounceAll()
 void ButtonHandlerDaisy::UpdateAll()
 {
     // Update trigger states
-    for (int i = 0; i < 4; i++) {
-        this->triggersStates[i][0] = this->triggers[i].RisingEdge(); // acabou de ser pressionado
-        if (this->triggersStates[i][0]) this->LastIndex = i; // atualiza o último índice
-        this->triggersStates[i][1] = this->triggers[i].Pressed(); // está pressionado no momento 
-        this->triggersStates[i][2] = this->triggers[i].FallingEdge(); // acabou de ser solto
+    for(int i = 0; i < 4; i++)
+    {
+        this->triggersStates[i][0]
+            = this->triggers[i].RisingEdge(); // acabou de ser pressionado
+        if(this->triggersStates[i][0])
+            this->LastIndex = i; // atualiza o último índice
+        this->triggersStates[i][1]
+            = this->triggers[i].Pressed(); // está pressionado no momento
+        this->triggersStates[i][2]
+            = this->triggers[i].FallingEdge(); // acabou de ser solto
     }
 
     // Update bank select and sweep to tune states
-    if (this->bankSelect.RisingEdge()) {
+    if(this->bankSelect.RisingEdge())
+    {
         this->bankSelectState = !this->bankSelectState;
     }
-    if (this->sweepToTune.RisingEdge()) {
+    if(this->sweepToTune.RisingEdge())
+    {
         this->sweepToTuneState = !this->sweepToTuneState;
     }
 }
 // ButtonHandler functions
-
 
 
 // Init functions
@@ -120,14 +128,13 @@ void InitComponents(int sample_rate, int block_size)
 {
     triggers = new Triggers();
     envelope = new DecayEnvelope(sample_rate, block_size);
-    sweep = new Sweep();
-    lfo = new Lfo(sample_rate);
-    vco = new Vco(sample_rate);
-    vcf = new Vcf();
-    out_amp = new OutAmp();
+    sweep    = new Sweep();
+    lfo      = new Lfo(sample_rate);
+    vco      = new Vco(sample_rate);
+    vcf      = new Vcf(sample_rate);
+    out_amp  = new OutAmp();
 }
 // Init functions
-
 
 
 // DecayEnvelope functions
@@ -149,12 +156,12 @@ void DecayEnvelope::Retrigger()
 // DecayEnvelope functions
 
 
-
 // Triggers functions
 bool Triggers::Triggered()
 {
-    for (int i = 0; i < 4; i++) {
-        if (button_handler->triggersStates[i][0])
+    for(int i = 0; i < 4; i++)
+    {
+        if(button_handler->triggersStates[i][0])
             return true;
     }
     return false;
@@ -162,8 +169,9 @@ bool Triggers::Triggered()
 
 bool Triggers::Pressed()
 {
-    for (int i = 0; i < 4; i++) {
-        if (button_handler->triggersStates[i][1])
+    for(int i = 0; i < 4; i++)
+    {
+        if(button_handler->triggersStates[i][1])
             return true;
     }
     return false;
@@ -171,8 +179,9 @@ bool Triggers::Pressed()
 
 bool Triggers::Released()
 {
-    for (int i = 0; i < 4; i++) {
-        if (button_handler->triggersStates[i][2])
+    for(int i = 0; i < 4; i++)
+    {
+        if(button_handler->triggersStates[i][2])
             return true;
     }
     return false;
@@ -185,7 +194,6 @@ bool Triggers::IsBankSelectActive()
 // Triggers functions
 
 
-
 // Sweep functions
 bool Sweep::IsSweepToTuneActive()
 {
@@ -194,36 +202,38 @@ bool Sweep::IsSweepToTuneActive()
 // Sweep functions
 
 
-
 // Lfo functions
 void Lfo::SetAmpAll(float amp)
 {
-    for (int i = 0; i < 4; i++)
+    for(int i = 0; i < 4; i++)
         this->osc[i].SetAmp(amp);
 }
 
 void Lfo::SetFreqAll(float freq)
 {
-    for (int i = 0; i < 4; i++) {
+    for(int i = 0; i < 4; i++)
+    {
         this->osc[i].SetFreq(freq);
     }
 }
 
 void Lfo::ResetPhaseAll()
 {
-    for (int i = 0; i < 4; i++)
+    for(int i = 0; i < 4; i++)
         this->osc[i].Reset();
 }
 
 std::pair<float, float> Lfo::ProcessAll()
 {
     // Process all 4 envelopes and store in value array
-    for (int i = 0; i < 4; i++) {
+    for(int i = 0; i < 4; i++)
+    {
         // Based on the Tremolo.cpp example in daisysp
         this->values[i][0] = this->osc[i].Process(); // LFO value
 
         float dc_offset = 0.5f * (1 - fclamp(this->DepthValue, 0.f, 1.f));
-        this->values[i][1] = dc_offset + this->values[i][0]; // Modulation signal value
+        this->values[i][1]
+            = dc_offset + this->values[i][0]; // Modulation signal value
     }
 
     // Return the value of the active trigger
@@ -231,7 +241,6 @@ std::pair<float, float> Lfo::ProcessAll()
     return std::make_pair(this->values[index][0], this->values[index][1]);
 }
 // Lfo functions
-
 
 
 // Vco functions
@@ -247,19 +256,20 @@ float Vco::Process()
 // Vco functions
 
 
-
 // Vcf functions
 void Vcf::SetFreq(float freq)
 {
-    this->filter.SetFrequency(freq);
+    freq = freq * SAMPLE_RATE; // Must be normalized to sample rate
+    // Scale exponentially to make parameter more intuitive
+    this->filter.SetFreq(freq);
 }
 
 float Vcf::Process(float in)
 {
-    return this->filter.Process(in);
+    this->filter.Process(in);
+    return this->filter.Low(); // Return low-pass output
 }
 // Vcf functions
-
 
 
 // OutAmp functions
@@ -273,7 +283,6 @@ float OutAmp::Process(float in)
     return in * this->VolumeValue;
 }
 // OutAmp functions
-
 
 
 // Debug functions
@@ -300,28 +309,27 @@ void PrintKnobValues()
 
 void PrintButtonStates()
 {
-    for (int i = 0; i < 4; i++)
+    for(int i = 0; i < 4; i++)
     {
         hw.Print("Trigger %d: %d %d %d | ",
-            i + 1,
-            button_handler->triggers[i].RisingEdge(),
-            button_handler->triggers[i].Pressed(),
-            button_handler->triggers[i].FallingEdge()
-        );
+                 i + 1,
+                 button_handler->triggers[i].RisingEdge(),
+                 button_handler->triggers[i].Pressed(),
+                 button_handler->triggers[i].FallingEdge());
     }
     hw.PrintLine("");
 }
 
 void PrintOutputs()
 {
-    hw.PrintLine("ADSR: " FLT_FMT3 " | LFO: " FLT_FMT3 " " FLT_FMT3 " | VCO: " FLT_FMT3,
-        FLT_VAR3(adsr_output),
-        FLT_VAR3(lfo_output.first), FLT_VAR3(lfo_output.first),
-        FLT_VAR3(vco_output)
-    );
+    hw.PrintLine("ADSR: " FLT_FMT3 " | LFO: " FLT_FMT3 " " FLT_FMT3
+                 " | VCO: " FLT_FMT3,
+                 FLT_VAR3(adsr_output),
+                 FLT_VAR3(lfo_output.first),
+                 FLT_VAR3(lfo_output.first),
+                 FLT_VAR3(vco_output));
 }
 // Debug functions
-
 
 
 // Main functions
@@ -334,16 +342,20 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         bool triggered = triggers->Triggered(), pressed = triggers->Pressed();
 
         // The LFO and Decay Envelope must reset when a trigger is triggered
-        if (triggered) {
+        if(triggered)
+        {
             lfo->ResetPhaseAll();
             envelope->Retrigger();
         }
 
         // Set and apply Decay Envelope
-        envelope->SetReleaseTime(ADSR_MIN_RELEASE_TIME + (envelope->ReleaseValue * (ADSR_RELEASE_TIME - ADSR_MIN_RELEASE_TIME)));
+        envelope->SetReleaseTime(
+            ADSR_MIN_RELEASE_TIME
+            + (envelope->ReleaseValue
+               * (ADSR_RELEASE_TIME - ADSR_MIN_RELEASE_TIME)));
         adsr_output = envelope->Process(pressed);
-        output = adsr_output;
-        
+        output      = adsr_output;
+
         // Set and apply LFO
         lfo->SetFreqAll(LFO_MAX_FREQ * lfo->RateValue);
         lfo->SetAmpAll(lfo->DepthValue);
@@ -352,12 +364,14 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
         // Set and apply VCO
         vco_modulation = (lfo_output.first + 1) * 0.5f; // Normalize to [0,1]
-        vco->SetFreq((VCO_MIN_FREQ + (vco_modulation * VCO_MAX_FREQ * vco->TuneValue)));
+        vco->SetFreq(
+            (VCO_MIN_FREQ + (vco_modulation * VCO_MAX_FREQ * vco->TuneValue)));
         vco_output = vco->Process();
         output *= vco_output;
 
         // Set and apply VCF low-pass filter
-        vcf->SetFreq((VCF_MIN_FREQ + (sweep->SweepValue * VCF_MAX_FREQ)) / SAMPLE_RATE); // Must be normalized to sample rate
+        vcf->SetFreq((VCF_MIN_FREQ + (sweep->SweepValue * VCF_MAX_FREQ))
+                     / SAMPLE_RATE); // Must be normalized to sample rate
         output = vcf->Process(output);
         // TODO: Add the release behavior to the filter
 
@@ -376,7 +390,7 @@ int main(void)
     hw.SetAudioBlockSize(4);
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
     SAMPLE_RATE = hw.AudioSampleRate();
-    BLOCK_SIZE = hw.AudioBlockSize();
+    BLOCK_SIZE  = hw.AudioBlockSize();
 
     knob_handler->InitAll();
     button_handler->InitAll();
