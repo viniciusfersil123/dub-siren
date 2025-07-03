@@ -7,7 +7,7 @@ using namespace daisy;
 using namespace daisysp;
 
 // Constants
-#define VCO_WAVEFORM Oscillator::WAVE_POLYBLEP_TRI
+#define VCO_WAVEFORM Oscillator::WAVE_POLYBLEP_SQUARE
 #define VCO_MIN_FREQ 30.0f
 #define VCO_MAX_FREQ 9000.0f
 
@@ -15,7 +15,7 @@ using namespace daisysp;
 #define ADSR_DECAY_TIME 0.1f
 #define ADSR_SUSTAIN_LEVEL 1.f
 #define ADSR_RELEASE_TIME 10.f
-#define ADSR_MIN_RELEASE_TIME 1.f
+#define ADSR_MIN_RELEASE_TIME 0.1f
 
 #define LFO_0_WAVEFORM Oscillator::WAVE_SIN
 #define LFO_1_WAVEFORM Oscillator::WAVE_SQUARE
@@ -70,10 +70,28 @@ class DecayEnvelope
 class Sweep
 {
   public:
-    Sweep() { this->SweepValue = 0; }
+    Sweep(int sample_rate, int block_size)
+    {
+        this->SweepValue          = 0.0f;
+        this->IsSweepToTuneActive = false;
+        this->envelope.Init(sample_rate, block_size);
+        this->envelope.SetTime(ADSR_SEG_ATTACK, ADSR_ATTACK_TIME);
+        this->envelope.SetTime(ADSR_SEG_DECAY, ADSR_DECAY_TIME);
+        this->envelope.SetTime(ADSR_SEG_RELEASE, ADSR_RELEASE_TIME);
+        this->envelope.SetSustainLevel(ADSR_SUSTAIN_LEVEL);
+    }
 
     float SweepValue;
-    bool  IsSweepToTuneActive();
+    bool  IsSweepToTuneActive;
+
+
+    Adsr  envelope;
+    float ReleaseValue;  // Knob value from 0.0f to 1.0f
+    float EnvelopeValue; // Current envelope value from 0.0f to 1.0f
+
+    void  SetReleaseTime(float time);
+    float Process(bool gate);
+    void  Retrigger();
 };
 // Sweep
 
@@ -151,8 +169,8 @@ class Vcf
     Vcf(int sample_rate)
     {
         this->filter.Init(sample_rate);
-        this->filter.SetDrive(50.0f); // No drive by default
-        this->filter.SetRes(0.95f);    // No resonance by default
+        this->filter.SetDrive(100.0f);
+        this->filter.SetRes(0.95f);
     }
 
     Svf filter;

@@ -25,10 +25,10 @@ using namespace daisy;
 using namespace daisysp;
 
 // Daisy setup components
-KnobHandlerDaisy*       knob_handler   = new KnobHandlerDaisy();
-ButtonHandlerDaisy*     button_handler = new ButtonHandlerDaisy();
-int                     SAMPLE_RATE = 0, BLOCK_SIZE = 0;
-float                   output, adsr_output, vco_output, vco_modulation;
+KnobHandlerDaisy*   knob_handler   = new KnobHandlerDaisy();
+ButtonHandlerDaisy* button_handler = new ButtonHandlerDaisy();
+int                 SAMPLE_RATE = 0, BLOCK_SIZE = 0;
+float output, adsr_vcf, adsr_output, vco_output, vco_modulation, cutoff_freq;
 std::pair<float, float> lfo_output = std::make_pair(0, 0);
 
 // Dub Siren components
@@ -62,7 +62,8 @@ void KnobHandlerDaisy::UpdateAll()
 
     // Decay Envelope knobs
     envelope->ReleaseValue = hw.adc.GetFloat(DecayKnob);
-    sweep->SweepValue      = hw.adc.GetFloat(SweepKnob);
+
+    sweep->ReleaseValue = hw.adc.GetFloat(SweepKnob);
 
     // LFO depth and rate knobs
     lfo->DepthValue = hw.adc.GetFloat(DepthKnob);
@@ -128,7 +129,7 @@ void InitComponents(int sample_rate, int block_size)
 {
     triggers = new Triggers();
     envelope = new DecayEnvelope(sample_rate, block_size);
-    sweep    = new Sweep();
+    sweep    = new Sweep(sample_rate, block_size);
     lfo      = new Lfo(sample_rate);
     vco      = new Vco(sample_rate);
     vcf      = new Vcf(sample_rate);
@@ -195,9 +196,25 @@ bool Triggers::IsBankSelectActive()
 
 
 // Sweep functions
-bool Sweep::IsSweepToTuneActive()
+/* bool Sweep::IsSweepToTuneActive()
 {
     return button_handler->sweepToTuneState;
+} */
+
+void Sweep::SetReleaseTime(float time)
+{
+    this->envelope.SetTime(ADSR_SEG_RELEASE, time);
+}
+
+float Sweep::Process(bool gate)
+{
+    this->EnvelopeValue = this->envelope.Process(gate);
+    return this->EnvelopeValue;
+}
+
+void Sweep::Retrigger()
+{
+    envelope.Retrigger(true);
 }
 // Sweep functions
 
@@ -354,7 +371,45 @@ void AudioCallback(AudioHandle::InputBuffer  in,
             + (envelope->ReleaseValue
                * (ADSR_RELEASE_TIME - ADSR_MIN_RELEASE_TIME)));
         adsr_output = envelope->Process(pressed);
-        output      = adsr_output;
+
+
+        // sweep->SweepValue = adsr_vcf;
+
+        if(hw.adc.GetFloat(SweepKnob) < 0.6f)
+        {
+            vcf->SetFreq(
+                ((((adsr_output * -1) + 1) * VCF_MAX_FREQ)
+                 + (VCF_MIN_FREQ + hw.adc.GetFloat(SweepKnob) * VCF_MAX_FREQ))
+                / SAMPLE_RATE);
+        }
+
+        if(hw.adc.GetFloat(SweepKnob) >= 0.4f)
+        {
+            vcf->SetFreq(
+                (((adsr_output)*hw.adc.GetFloat(SweepKnob) * VCF_MAX_FREQ)
+                 + (VCF_MAX_FREQ - (VCF_MAX_FREQ * hw.adc.GetFloat(SweepKnob))))
+                / SAMPLE_RATE);
+        }
+
+
+        //invert to go lineary
+        if(pressed)
+        {
+            cutoff_freq
+                = (VCF_MIN_FREQ + hw.adc.GetFloat(SweepKnob) * VCF_MAX_FREQ)
+                  / SAMPLE_RATE;
+            sweep->SweepValue = cutoff_freq;
+            vcf->SetFreq(cutoff_freq);
+        }
+
+
+        //line that sets the cutoff frequency
+
+
+        // vcf->SetFreq((VCF_MIN_FREQ + (sweep->SweepValue * VCF_MAX_FREQ))
+        //              / SAMPLE_RATE); // Must be normalized to sample rate
+
+        output = adsr_output;
 
         // Set and apply LFO
         lfo->SetFreqAll(LFO_MAX_FREQ * lfo->RateValue);
@@ -370,8 +425,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         output *= vco_output;
 
         // Set and apply VCF low-pass filter
-        vcf->SetFreq((VCF_MIN_FREQ + (sweep->SweepValue * VCF_MAX_FREQ))
-                     / SAMPLE_RATE); // Must be normalized to sample rate
+
         output = vcf->Process(output);
         // TODO: Add the release behavior to the filter
 
