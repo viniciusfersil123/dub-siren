@@ -384,25 +384,37 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         if(pressed)
         {
             // When pressed, control VCF freq with sweep knob linearly
-            cutoff_freq
-                = (VCF_MIN_FREQ + sweepVal * VCF_MAX_FREQ) / SAMPLE_RATE;
+            {
+                float exp_cutoff
+                    = VCF_MIN_FREQ
+                      * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, sweepVal);
+                cutoff_freq = exp_cutoff / SAMPLE_RATE;
+            }
+
             sweep->SweepValue = cutoff_freq;
             vcf->SetFreq(cutoff_freq);
         }
         else
         {
             // When not pressed, modulate VCF freq based on envelope
-            if(sweepVal < 0.5f)
             {
-                vcf->SetFreq(((((1.0f - adsr_output) * VCF_MAX_FREQ)
-                               + (VCF_MIN_FREQ + sweepVal * VCF_MAX_FREQ)))
-                             / SAMPLE_RATE);
-            }
-            else
-            {
-                vcf->SetFreq(((adsr_output * sweepVal * VCF_MAX_FREQ)
-                              + (VCF_MAX_FREQ - (VCF_MAX_FREQ * sweepVal)))
-                             / SAMPLE_RATE);
+                float freq;
+                if(sweepVal < 0.5f)
+                {
+                    freq = ((1.0f - adsr_output) * VCF_MAX_FREQ)
+                           + (VCF_MIN_FREQ + sweepVal * VCF_MAX_FREQ);
+                }
+                else
+                {
+                    freq = (adsr_output * sweepVal * VCF_MAX_FREQ)
+                           + (VCF_MAX_FREQ - (VCF_MAX_FREQ * sweepVal));
+                }
+
+                // Normalize to [0,1] for exponential curve
+                float norm = fclamp(freq / VCF_MAX_FREQ, 0.f, 1.f);
+                float exp_freq
+                    = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, norm);
+                vcf->SetFreq(exp_freq / SAMPLE_RATE);
             }
         }
 
@@ -411,14 +423,21 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
         // --- LFO processing ---
         lfo->SetFreqAll(LFO_MAX_FREQ * lfo->RateValue);
-        lfo->SetAmpAll(lfo->DepthValue);
+        float depth_scaled = fclamp(lfo->DepthValue, 0.f, 1.f);
+        float depth_exp    = powf(10.f, (depth_scaled - 1.0f))
+                          * 1.0f; // maps 0→0.1, 0.5→~0.316, 1→1
+        lfo->SetAmpAll(depth_exp);
+
         lfo_output = lfo->ProcessAll();
         output *= lfo_output.second; // Apply amplitude modulation
 
         // --- VCO frequency and modulation ---
-        vco_modulation = (lfo_output.first + 1.0f) * 0.5f; // Normalize [0,1]
-        float vco_freq
-            = VCO_MIN_FREQ + (vco_modulation * VCO_MAX_FREQ * vco->TuneValue);
+        vco_modulation    = (lfo_output.first + 1.0f) * 0.5f; // Normalize [0,1]
+        float tune_scaled = fclamp(vco->TuneValue, 0.f, 1.f);
+        float tune_exp
+            = VCO_MIN_FREQ
+              * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, tune_scaled * vco_modulation);
+        float vco_freq = tune_exp;
 
         // Optional sweep modulation mapped to VCO frequency
         if(button_handler->sweepToTuneState)
