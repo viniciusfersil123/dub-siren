@@ -39,6 +39,10 @@ Lfo*           lfo;
 Vco*           vco;
 Vcf*           vcf;
 OutAmp*        out_amp;
+GPIO           led_sweep;
+//Initialize led1. We'll plug it into pin 28.
+//false here indicates the value is uninverted
+
 
 // KnobHandler functions
 void KnobHandlerDaisy::InitAll()
@@ -356,83 +360,101 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 {
     for(size_t i = 0; i < size; i++)
     {
-        bool triggered = triggers->Triggered(), pressed = triggers->Pressed();
+        bool  triggered = triggers->Triggered();
+        bool  pressed   = triggers->Pressed();
+        float sweepVal  = hw.adc.GetFloat(SweepKnob);
 
-        // The LFO and Decay Envelope must reset when a trigger is triggered
+        // Reset envelope and LFO on trigger
         if(triggered)
         {
             lfo->ResetPhaseAll();
             envelope->Retrigger();
         }
 
-        // Set and apply Decay Envelope
+        // Set and process envelope
         envelope->SetReleaseTime(
             ADSR_MIN_RELEASE_TIME
             + (envelope->ReleaseValue
                * (ADSR_RELEASE_TIME - ADSR_MIN_RELEASE_TIME)));
         adsr_output = envelope->Process(pressed);
 
-
-        // sweep->SweepValue = adsr_vcf;
-
-        if(hw.adc.GetFloat(SweepKnob) < 0.6f)
-        {
-            vcf->SetFreq(
-                ((((adsr_output * -1) + 1) * VCF_MAX_FREQ)
-                 + (VCF_MIN_FREQ + hw.adc.GetFloat(SweepKnob) * VCF_MAX_FREQ))
-                / SAMPLE_RATE);
-        }
-
-        if(hw.adc.GetFloat(SweepKnob) >= 0.4f)
-        {
-            vcf->SetFreq(
-                (((adsr_output)*hw.adc.GetFloat(SweepKnob) * VCF_MAX_FREQ)
-                 + (VCF_MAX_FREQ - (VCF_MAX_FREQ * hw.adc.GetFloat(SweepKnob))))
-                / SAMPLE_RATE);
-        }
-
-
-        //invert to go lineary
+        // --- Filter frequency (VCF) logic ---
         if(pressed)
         {
+            // When pressed, control VCF freq with sweep knob linearly
             cutoff_freq
-                = (VCF_MIN_FREQ + hw.adc.GetFloat(SweepKnob) * VCF_MAX_FREQ)
-                  / SAMPLE_RATE;
+                = (VCF_MIN_FREQ + sweepVal * VCF_MAX_FREQ) / SAMPLE_RATE;
             sweep->SweepValue = cutoff_freq;
             vcf->SetFreq(cutoff_freq);
         }
+        else
+        {
+            // When not pressed, modulate VCF freq based on envelope
+            if(sweepVal < 0.5f)
+            {
+                vcf->SetFreq(((((1.0f - adsr_output) * VCF_MAX_FREQ)
+                               + (VCF_MIN_FREQ + sweepVal * VCF_MAX_FREQ)))
+                             / SAMPLE_RATE);
+            }
+            else
+            {
+                vcf->SetFreq(((adsr_output * sweepVal * VCF_MAX_FREQ)
+                              + (VCF_MAX_FREQ - (VCF_MAX_FREQ * sweepVal)))
+                             / SAMPLE_RATE);
+            }
+        }
 
-
-        //line that sets the cutoff frequency
-
-
-        // vcf->SetFreq((VCF_MIN_FREQ + (sweep->SweepValue * VCF_MAX_FREQ))
-        //              / SAMPLE_RATE); // Must be normalized to sample rate
-
+        // Initial output from envelope
         output = adsr_output;
 
-        // Set and apply LFO
+        // --- LFO processing ---
         lfo->SetFreqAll(LFO_MAX_FREQ * lfo->RateValue);
         lfo->SetAmpAll(lfo->DepthValue);
         lfo_output = lfo->ProcessAll();
-        output *= lfo_output.second; // Modulation signal value
+        output *= lfo_output.second; // Apply amplitude modulation
 
-        // Set and apply VCO
-        vco_modulation = (lfo_output.first + 1) * 0.5f; // Normalize to [0,1]
-        vco->SetFreq(
-            (VCO_MIN_FREQ + (vco_modulation * VCO_MAX_FREQ * vco->TuneValue)));
+        // --- VCO frequency and modulation ---
+        vco_modulation = (lfo_output.first + 1.0f) * 0.5f; // Normalize [0,1]
+        float vco_freq
+            = VCO_MIN_FREQ + (vco_modulation * VCO_MAX_FREQ * vco->TuneValue);
+
+        // Optional sweep modulation mapped to VCO frequency
+        if(button_handler->sweepToTuneState)
+        {
+            float flippedSweep = 1.0f - sweepVal;
+
+            if(flippedSweep < 0.5f)
+            {
+                vco_freq -= ((1.0f - flippedSweep * 2.0f) * 1000.0f)
+                            * (1.0f - adsr_output);
+            }
+            else
+            {
+                vco_freq
+                    -= ((flippedSweep - 0.5f) * 2.0f * 1000.0f) * adsr_output;
+            }
+
+
+            // Clamp to avoid glitch or crash
+            if(vco_freq < 1.0f)
+                vco_freq = 1.0f;
+
+            if(vco_freq > 20000.0f)
+                vco_freq = 20000.0f;
+        }
+
+
+        vco->SetFreq(vco_freq);
         vco_output = vco->Process();
         output *= vco_output;
 
-        // Set and apply VCF low-pass filter
-
+        // --- Apply VCF low-pass filter ---
         output = vcf->Process(output);
-        // TODO: Add the release behavior to the filter
 
-        // Apply volume
+        // --- Apply output amplifier ---
         output = out_amp->Process(output);
 
-        // Output to both channels
+        // --- Send to output buffer (stereo) ---
         out[0][i] = output;
         out[1][i] = output;
     }
@@ -445,7 +467,7 @@ int main(void)
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
     SAMPLE_RATE = hw.AudioSampleRate();
     BLOCK_SIZE  = hw.AudioBlockSize();
-
+    led_sweep.Init(daisy::seed::D27, GPIO::Mode::OUTPUT);
     knob_handler->InitAll();
     button_handler->InitAll();
     InitComponents(SAMPLE_RATE, BLOCK_SIZE);
@@ -461,6 +483,12 @@ int main(void)
         knob_handler->UpdateAll();
         button_handler->DebounceAll();
         button_handler->UpdateAll();
+        if(button_handler->sweepToTune.RisingEdge())
+        {
+            sweep->IsSweepToTuneActive = !sweep->IsSweepToTuneActive;
+        }
+        led_sweep.Write(button_handler->sweepToTuneState);
+
 
         // PrintKnobValues();
         // PrintButtonStates();
