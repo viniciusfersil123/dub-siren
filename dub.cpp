@@ -40,6 +40,8 @@ Vco*           vco;
 Vcf*           vcf;
 OutAmp*        out_amp;
 GPIO           led_sweep;
+GPIO           led_bank;
+bool           test = false; // Used to test the Sweep LED
 //Initialize led1. We'll plug it into pin 28.
 //false here indicates the value is uninverted
 
@@ -468,6 +470,7 @@ int main(void)
     SAMPLE_RATE = hw.AudioSampleRate();
     BLOCK_SIZE  = hw.AudioBlockSize();
     led_sweep.Init(daisy::seed::D27, GPIO::Mode::OUTPUT);
+    led_bank.Init(daisy::seed::D28, GPIO::Mode::OUTPUT);
     knob_handler->InitAll();
     button_handler->InitAll();
     InitComponents(SAMPLE_RATE, BLOCK_SIZE);
@@ -487,8 +490,12 @@ int main(void)
         {
             sweep->IsSweepToTuneActive = !sweep->IsSweepToTuneActive;
         }
+        if(button_handler->bankSelect.RisingEdge())
+        {
+            test = !test;
+        }
         led_sweep.Write(button_handler->sweepToTuneState);
-
+        led_bank.Write(test);
 
         // PrintKnobValues();
         // PrintButtonStates();
