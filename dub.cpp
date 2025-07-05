@@ -41,7 +41,8 @@ Vcf*           vcf;
 OutAmp*        out_amp;
 GPIO           led_sweep;
 GPIO           led_bank;
-bool           test = false; // Used to test the Sweep LED
+volatile bool  reset_lfo_flag = false;
+
 //Initialize led1. We'll plug it into pin 28.
 //false here indicates the value is uninverted
 
@@ -367,11 +368,13 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         float sweepVal  = hw.adc.GetFloat(SweepKnob);
 
         // Reset envelope and LFO on trigger
-        if(triggered)
+        if(reset_lfo_flag)
         {
             lfo->ResetPhaseAll();
             envelope->Retrigger();
+            reset_lfo_flag = false;
         }
+
 
         // Set and process envelope
         envelope->SetReleaseTime(
@@ -505,16 +508,23 @@ int main(void)
         knob_handler->UpdateAll();
         button_handler->DebounceAll();
         button_handler->UpdateAll();
+        for(int i = 0; i < 4; i++)
+        {
+            if(button_handler->triggers[i].RisingEdge())
+            {
+                reset_lfo_flag = true;
+            }
+        }
+
         if(button_handler->sweepToTune.RisingEdge())
         {
             sweep->IsSweepToTuneActive = !sweep->IsSweepToTuneActive;
         }
         if(button_handler->bankSelect.RisingEdge())
         {
-            test = !test;
+            //test = !test;
         }
         led_sweep.Write(button_handler->sweepToTuneState);
-        led_bank.Write(test);
 
         // PrintKnobValues();
         // PrintButtonStates();
