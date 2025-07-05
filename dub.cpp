@@ -41,6 +41,7 @@ Vcf*           vcf;
 OutAmp*        out_amp;
 GPIO           led_sweep;
 GPIO           led_bank;
+bool           test           = false;
 volatile bool  reset_lfo_flag = false;
 
 //Initialize led1. We'll plug it into pin 28.
@@ -435,12 +436,24 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         output *= lfo_output.second; // Apply amplitude modulation
 
         // --- VCO frequency and modulation ---
-        vco_modulation    = (lfo_output.first + 1.0f) * 0.5f; // Normalize [0,1]
-        float tune_scaled = fclamp(vco->TuneValue, 0.f, 1.f);
-        float tune_exp
-            = VCO_MIN_FREQ
-              * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, tune_scaled * vco_modulation);
-        float vco_freq = tune_exp;
+        // Parte fixa: frequência base do VCO a partir do knob
+        float tune_scaled   = fclamp(vco->TuneValue, 0.f, 1.f);
+        float exponent      = fclamp(tune_scaled, 0.f, 1.f);
+        float base          = VCO_MAX_FREQ / VCO_MIN_FREQ;
+        float vco_freq_base = VCO_MIN_FREQ * powf(base, exponent);
+
+        // Parte variável: modulação do LFO sobre essa base
+        float lfo_val = fclamp(lfo_output.first, -1.f, 1.f); // [-1, 1]
+        float depth   = fclamp(lfo->DepthValue, 0.f, 1.f);
+
+        // Exemplo: até +/- 2 oitavas (4x ou 0.25x multiplicador)
+        float pitch_range = 2.0f; // oitavas
+        float pitch_mod   = lfo_val * depth * pitch_range;
+        float freq_mod    = powf(2.0f, pitch_mod); // 2^n oitavas
+
+        float vco_freq = vco_freq_base * freq_mod;
+
+        vco_freq = fclamp(vco_freq, 1.0f, 20000.0f);
 
         // Optional sweep modulation mapped to VCO frequency
         if(button_handler->sweepToTuneState)
@@ -522,7 +535,7 @@ int main(void)
         }
         if(button_handler->bankSelect.RisingEdge())
         {
-            //test = !test;
+            test = !test;
         }
         led_sweep.Write(button_handler->sweepToTuneState);
 
