@@ -116,21 +116,30 @@ class Lfo
   public:
     Lfo(int sample_rate)
     {
-        for(int i = 0; i < 5; i++)
-        {
-            this->osc[i].Init(sample_rate);
-        }
+        osc[0].Init(sample_rate);
+        osc[0].SetWaveform(LFO_0_WAVEFORM);
+        osc[1].Init(sample_rate);
+        osc[1].SetWaveform(LFO_1_WAVEFORM);
+        osc[2].Init(sample_rate);
+        osc[2].SetWaveform(LFO_2_WAVEFORM);
+        osc[3].Init(sample_rate);
+        osc[3].SetWaveform(LFO_3_WAVEFORM);
 
-        this->osc[0].SetWaveform(LFO_0_WAVEFORM);
-        this->osc[1].SetWaveform(LFO_1_WAVEFORM);
-        this->osc[2].SetWaveform(LFO_2_WAVEFORM);
-        this->osc[3].SetWaveform(LFO_3_WAVEFORM);
-        this->osc[4].SetWaveform(LFO_2_WAVEFORM);
+
+        osc_harm[0].Init(sample_rate);
+        osc_harm[0].SetWaveform(LFO_0_WAVEFORM);
+        osc_harm[1].Init(sample_rate);
+        osc_harm[1].SetWaveform(LFO_1_WAVEFORM);
+        osc_harm[2].Init(sample_rate);
+        osc_harm[2].SetWaveform(LFO_2_WAVEFORM);
+        osc_harm[3].Init(sample_rate);
+        osc_harm[3].SetWaveform(LFO_3_WAVEFORM);
     }
 
     float      DepthValue;
     float      RateValue;
     Oscillator osc[5];
+    Oscillator osc_harm[4];
     float      values[5][2]; // oscillator value and modsig value
 
     void                    Init();
