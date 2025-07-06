@@ -105,7 +105,7 @@ class Triggers
     bool Triggered();
     bool Pressed();
     bool Released();
-    bool IsBankSelectActive();
+    bool IsBankSelectActive = false;
 };
 // Triggers
 
@@ -116,7 +116,7 @@ class Lfo
   public:
     Lfo(int sample_rate)
     {
-        for(int i = 0; i < 4; i++)
+        for(int i = 0; i < 5; i++)
         {
             this->osc[i].Init(sample_rate);
         }
@@ -125,12 +125,13 @@ class Lfo
         this->osc[1].SetWaveform(LFO_1_WAVEFORM);
         this->osc[2].SetWaveform(LFO_2_WAVEFORM);
         this->osc[3].SetWaveform(LFO_3_WAVEFORM);
+        this->osc[4].SetWaveform(LFO_2_WAVEFORM);
     }
 
     float      DepthValue;
     float      RateValue;
-    Oscillator osc[4];
-    float      values[4][2]; // oscillator value and modsig value
+    Oscillator osc[5];
+    float      values[5][2]; // oscillator value and modsig value
 
     void                    Init();
     void                    SetAmpAll(float amp);

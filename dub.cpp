@@ -41,9 +41,7 @@ Vcf*           vcf;
 OutAmp*        out_amp;
 GPIO           led_sweep;
 GPIO           led_bank;
-bool           test           = false;
-volatile bool  reset_lfo_flag = false;
-
+bool           test = false; // Used to test the Sweep LED
 //Initialize led1. We'll plug it into pin 28.
 //false here indicates the value is uninverted
 
@@ -196,10 +194,10 @@ bool Triggers::Released()
     return false;
 }
 
-bool Triggers::IsBankSelectActive()
-{
-    return button_handler->bankSelectState;
-}
+// bool Triggers::IsBankSelectActive()
+// {
+//     return button_handler->bankSelectState;
+// }
 // Triggers functions
 
 
@@ -250,21 +248,41 @@ void Lfo::ResetPhaseAll()
 
 std::pair<float, float> Lfo::ProcessAll()
 {
-    // Process all 4 envelopes and store in value array
-    for(int i = 0; i < 4; i++)
-    {
-        // Based on the Tremolo.cpp example in daisysp
-        this->values[i][0] = this->osc[i].Process(); // LFO value
+    int index = button_handler->LastIndex;
 
-        float dc_offset = 0.5f * (1 - fclamp(this->DepthValue, 0.f, 1.f));
-        this->values[i][1]
-            = dc_offset + this->values[i][0]; // Modulation signal value
+    // Dynamically change waveform depending on the selected bank
+    if(button_handler->bankSelectState)
+    {
+        // Bank B: use alternate waveform
+        switch(index)
+        {
+            case 0: osc[0].SetWaveform(Oscillator::WAVE_SQUARE); break;
+            case 1: osc[0].SetWaveform(Oscillator::WAVE_TRI); break;
+            case 2: osc[2].SetWaveform(Oscillator::WAVE_RAMP); break;
+            case 3: osc[3].SetWaveform(Oscillator::WAVE_SAW); break;
+        }
+    }
+    else
+    {
+        // Bank A: use default waveform
+        switch(index)
+        {
+            case 0: osc[0].SetWaveform(Oscillator::WAVE_SIN); break;
+            case 1: osc[1].SetWaveform(Oscillator::WAVE_SQUARE); break;
+            case 2: osc[2].SetWaveform(Oscillator::WAVE_SAW); break;
+            case 3: osc[3].SetWaveform(Oscillator::WAVE_RAMP); break;
+        }
     }
 
-    // Return the value of the active trigger
-    int index = button_handler->LastIndex;
-    return std::make_pair(this->values[index][0], this->values[index][1]);
+    // Process only the active LFO
+    float lfo_val   = osc[index].Process();
+    float dc_offset = 0.5f * (1 - fclamp(DepthValue, 0.f, 1.f));
+    float modsig    = dc_offset + lfo_val;
+
+    return std::make_pair(lfo_val, modsig);
 }
+
+
 // Lfo functions
 
 
@@ -369,13 +387,11 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         float sweepVal  = hw.adc.GetFloat(SweepKnob);
 
         // Reset envelope and LFO on trigger
-        if(reset_lfo_flag)
+        if(triggered)
         {
             lfo->ResetPhaseAll();
             envelope->Retrigger();
-            reset_lfo_flag = false;
         }
-
 
         // Set and process envelope
         envelope->SetReleaseTime(
@@ -436,24 +452,12 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         output *= lfo_output.second; // Apply amplitude modulation
 
         // --- VCO frequency and modulation ---
-        // Parte fixa: frequência base do VCO a partir do knob
-        float tune_scaled   = fclamp(vco->TuneValue, 0.f, 1.f);
-        float exponent      = fclamp(tune_scaled, 0.f, 1.f);
-        float base          = VCO_MAX_FREQ / VCO_MIN_FREQ;
-        float vco_freq_base = VCO_MIN_FREQ * powf(base, exponent);
-
-        // Parte variável: modulação do LFO sobre essa base
-        float lfo_val = fclamp(lfo_output.first, -1.f, 1.f); // [-1, 1]
-        float depth   = fclamp(lfo->DepthValue, 0.f, 1.f);
-
-        // Exemplo: até +/- 2 oitavas (4x ou 0.25x multiplicador)
-        float pitch_range = 2.0f; // oitavas
-        float pitch_mod   = lfo_val * depth * pitch_range;
-        float freq_mod    = powf(2.0f, pitch_mod); // 2^n oitavas
-
-        float vco_freq = vco_freq_base * freq_mod;
-
-        vco_freq = fclamp(vco_freq, 1.0f, 20000.0f);
+        vco_modulation    = (lfo_output.first + 1.0f) * 0.5f; // Normalize [0,1]
+        float tune_scaled = fclamp(vco->TuneValue, 0.f, 1.f);
+        float tune_exp
+            = VCO_MIN_FREQ
+              * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, tune_scaled * vco_modulation);
+        float vco_freq = tune_exp;
 
         // Optional sweep modulation mapped to VCO frequency
         if(button_handler->sweepToTuneState)
@@ -521,14 +525,6 @@ int main(void)
         knob_handler->UpdateAll();
         button_handler->DebounceAll();
         button_handler->UpdateAll();
-        for(int i = 0; i < 4; i++)
-        {
-            if(button_handler->triggers[i].RisingEdge())
-            {
-                reset_lfo_flag = true;
-            }
-        }
-
         if(button_handler->sweepToTune.RisingEdge())
         {
             sweep->IsSweepToTuneActive = !sweep->IsSweepToTuneActive;
@@ -538,6 +534,7 @@ int main(void)
             test = !test;
         }
         led_sweep.Write(button_handler->sweepToTuneState);
+        led_bank.Write(test);
 
         // PrintKnobValues();
         // PrintButtonStates();
