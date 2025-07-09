@@ -107,17 +107,21 @@ void ButtonHandlerDaisy::DebounceAll()
 
 void ButtonHandlerDaisy::UpdateAll()
 {
-    // Update trigger states
+    // Update trigger states with latch mechanism
     for(int i = 0; i < 4; i++)
     {
-        this->triggersStates[i][0]
-            = this->triggers[i].RisingEdge(); // acabou de ser pressionado
-        if(this->triggersStates[i][0])
-            this->LastIndex = i; // atualiza o último índice
-        this->triggersStates[i][1]
-            = this->triggers[i].Pressed(); // está pressionado no momento
-        this->triggersStates[i][2]
-            = this->triggers[i].FallingEdge(); // acabou de ser solto
+        // Only set triggered to true, don't clear it here (latch mechanism)
+        if(this->triggers[i].RisingEdge())
+        {
+            this->triggersStates[i][0] = true; // Latch the trigger
+            this->LastIndex            = i;
+        }
+
+        // Trigger is being pressed
+        this->triggersStates[i][1] = this->triggers[i].Pressed();
+
+        // Trigger is released
+        this->triggersStates[i][2] = this->triggers[i].FallingEdge();
     }
 
     // Update bank select and sweep to tune states
@@ -197,6 +201,18 @@ bool Triggers::Released()
     return false;
 }
 
+void Triggers::ClearTriggered()
+{
+    for(int i = 0; i < 4; i++)
+    {
+        if(button_handler->triggersStates[i][0])
+        {
+            button_handler->triggersStates[i][0] = false;
+            break; // Only clear one trigger per call
+        }
+    }
+}
+
 // bool Triggers::IsBankSelectActive()
 // {
 //     return button_handler->bankSelectState;
@@ -257,7 +273,10 @@ void Lfo::SetFreqAll(float freq)
 void Lfo::ResetPhaseAll()
 {
     for(int i = 0; i < 4; i++)
-        this->osc[i].Reset();
+    {
+        this->osc[i].Reset(0.0f);
+        this->osc_harm[i].Reset(0.0f);
+    }
 }
 
 std::pair<float, float> Lfo::ProcessAll()
@@ -322,8 +341,6 @@ std::pair<float, float> Lfo::ProcessAll()
 
     return std::make_pair(lfo_val, modsig);
 }
-
-
 // Lfo functions
 
 
@@ -432,7 +449,6 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // Reset envelope and LFO on trigger
         if(triggered)
         {
-            lfo->ResetPhaseAll();
             envelope->Retrigger();
         }
 
@@ -490,6 +506,12 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         float depth_exp    = powf(10.f, (depth_scaled - 1.0f))
                           * 1.0f; // maps 0→0.1, 0.5→~0.316, 1→1
         lfo->SetAmpAll(depth_exp);
+
+        if(triggered)
+        {
+            lfo->ResetPhaseAll();
+            triggers->ClearTriggered();
+        }
 
         lfo_output = lfo->ProcessAll();
         output *= lfo_output.second; // Apply amplitude modulation
