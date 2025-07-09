@@ -117,33 +117,25 @@ class Lfo
   public:
     Lfo(int sample_rate)
     {
-        osc[0].Init(sample_rate);
-        osc[0].SetWaveform(LFO_0_WAVEFORM);
-        osc[1].Init(sample_rate);
-        osc[1].SetWaveform(LFO_1_WAVEFORM);
-        osc[2].Init(sample_rate);
-        osc[2].SetWaveform(LFO_2_WAVEFORM);
-        osc[3].Init(sample_rate);
-        osc[3].SetWaveform(LFO_3_WAVEFORM);
-
-
-        osc_harm[0].Init(sample_rate);
-        osc_harm[0].SetWaveform(LFO_0_WAVEFORM);
-        osc_harm[1].Init(sample_rate);
-        osc_harm[1].SetWaveform(LFO_1_WAVEFORM);
-        osc_harm[2].Init(sample_rate);
-        osc_harm[2].SetWaveform(LFO_2_WAVEFORM);
-        osc_harm[3].Init(sample_rate);
-        osc_harm[3].SetWaveform(LFO_3_WAVEFORM);
+        for(int i = 0; i < 4; i++)
+        {
+            osc[i].Init(sample_rate);
+            osc[i].SetWaveform(Oscillator::WAVE_SIN);
+            osc_harm[i].Init(sample_rate);
+            osc_harm[i].SetWaveform(Oscillator::WAVE_SIN);
+        }
     }
+
 
     float      DepthValue;
     float      RateValue;
-    Oscillator osc[5];
+    Oscillator osc[4];
     Oscillator osc_harm[4];
     float      values[5][2]; // oscillator value and modsig value
 
     void                    Init();
+    void                    UpdateWaveforms(int index, bool bankB);
+    float                   MixLfoSignals(int index, bool bankB);
     void                    SetAmpAll(float amp);
     void                    SetFreqAll(float freq);
     void                    ResetPhaseAll();

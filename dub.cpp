@@ -245,6 +245,61 @@ void Sweep::Retrigger()
 
 
 // Lfo functions
+void Lfo::UpdateWaveforms(int index, bool bankB)
+{
+    if(bankB)
+    {
+        switch(index)
+        {
+            case 0:
+                osc[0].SetWaveform(Oscillator::WAVE_SIN);
+                osc_harm[0].SetWaveform(Oscillator::WAVE_SIN);
+                break;
+            case 1:
+                osc[1].SetWaveform(Oscillator::WAVE_SQUARE);
+                osc_harm[1].SetWaveform(Oscillator::WAVE_SQUARE);
+                break;
+            case 2:
+                osc[2].SetWaveform(Oscillator::WAVE_SQUARE);
+                osc_harm[2].SetWaveform(Oscillator::WAVE_SAW);
+                break;
+            case 3:
+                osc[3].SetWaveform(Oscillator::WAVE_RAMP);
+                osc_harm[3].SetWaveform(Oscillator::WAVE_RAMP);
+                break;
+        }
+    }
+    else
+    {
+        static constexpr int waves[4] = {Oscillator::WAVE_SIN,
+                                         Oscillator::WAVE_SQUARE,
+                                         Oscillator::WAVE_SAW,
+                                         Oscillator::WAVE_RAMP};
+
+        osc[index].SetWaveform(waves[index]);
+    }
+}
+
+float Lfo::MixLfoSignals(int index, bool bankB)
+{
+    float base = osc[index].Process();
+    float harm = osc_harm[index].Process();
+
+    if(bankB)
+    {
+        switch(index)
+        {
+            case 0: return 0.5f * (base + harm);        // sin + sin(3x)
+            case 1: return 0.5f * (base + harm);        // square + square(4x)
+            case 2: return 0.5f * (base + harm);        // square + saw(4x)
+            case 3: return 0.5f * (base + 0.5f * harm); // ramp + 0.5*ramp(2x)
+        }
+    }
+
+    return base;
+}
+
+
 void Lfo::SetAmpAll(float amp)
 {
     for(int i = 0; i < 4; i++)
@@ -253,19 +308,12 @@ void Lfo::SetAmpAll(float amp)
 
 void Lfo::SetFreqAll(float freq)
 {
+    static constexpr float harm_ratios[4] = {4.0f, 8.0f, 8.0f, 2.0f};
+
     for(int i = 0; i < 4; i++)
     {
         osc[i].SetFreq(freq);
-
-        // Keep 3x for index 0, and 4x for index 1
-        if(i == 0)
-            osc_harm[i].SetFreq(freq * 3.0f);
-        else if(i == 1)
-            osc_harm[i].SetFreq(freq * 4.0f);
-        else if(i == 2)
-            osc_harm[i].SetFreq(freq * 4.0f);
-        else if(i == 3)
-            osc_harm[i].SetFreq(freq * 2.0f);
+        osc_harm[i].SetFreq(freq * harm_ratios[i]);
     }
 }
 
@@ -281,60 +329,11 @@ void Lfo::ResetPhaseAll()
 
 std::pair<float, float> Lfo::ProcessAll()
 {
-    int index = button_handler->LastIndex;
+    int  index = button_handler->LastIndex;
+    bool bankB = button_handler->bankSelectState;
 
-    // Dynamically change waveform depending on the selected bank
-    if(button_handler->bankSelectState)
-    {
-        switch(index)
-        {
-            case 0: osc[0].SetWaveform(Oscillator::WAVE_SQUARE); break;
-            case 1: osc[1].SetWaveform(Oscillator::WAVE_TRI); break;
-            case 3: osc[3].SetWaveform(Oscillator::WAVE_SAW); break;
-        }
-    }
-    else
-    {
-        switch(index)
-        {
-            case 0: osc[0].SetWaveform(Oscillator::WAVE_SIN); break;
-            case 1: osc[1].SetWaveform(Oscillator::WAVE_SQUARE); break;
-            case 2: osc[2].SetWaveform(Oscillator::WAVE_SAW); break;
-            case 3: osc[3].SetWaveform(Oscillator::WAVE_RAMP); break;
-        }
-    }
-
-    float lfo_val;
-
-    // Trigger 1 in Bank B: sin(x) + 0.5*sin(3x)
-    if(button_handler->bankSelectState && index == 0)
-    {
-        lfo_val = (osc[0].Process() + osc_harm[0].Process()) * 0.5f;
-    }
-    // Trigger 2 in Bank B: sin(x) + 0.5*sin(4x)
-    else if(button_handler->bankSelectState && index == 1)
-    {
-        osc[1].SetWaveform(Oscillator::WAVE_SQUARE);
-        osc_harm[1].SetWaveform(Oscillator::WAVE_SQUARE);
-        lfo_val = (osc[1].Process() + osc_harm[1].Process()) * 0.5f;
-    }
-    else if(button_handler->bankSelectState && index == 2)
-    {
-        osc[2].SetWaveform(Oscillator::WAVE_SQUARE);
-        osc_harm[2].SetWaveform(Oscillator::WAVE_SAW);
-        lfo_val = (osc[2].Process() + osc_harm[2].Process()) * 0.5f;
-    }
-    else if(button_handler->bankSelectState && index == 3)
-    {
-        osc[3].SetWaveform(Oscillator::WAVE_RAMP);
-        osc_harm[3].SetWaveform(Oscillator::WAVE_RAMP);
-        lfo_val = (osc[3].Process() + 0.5 * osc_harm[3].Process()) * 0.5f;
-    }
-
-    else
-    {
-        lfo_val = osc[index].Process();
-    }
+    UpdateWaveforms(index, bankB);
+    float lfo_val = MixLfoSignals(index, bankB);
 
     float dc_offset = 0.5f * (1 - fclamp(DepthValue, 0.f, 1.f));
     float modsig    = dc_offset + lfo_val;
