@@ -13,7 +13,8 @@ Tune   | 24
 Sweep  | 25
 Rate   | 26
 
-BUTTON      | PIN NUMBER ------------------------
+BUTTON      | PIN NUMBER
+------------------------
 Trigger 1   | 27
 Trigger 2   | 28
 Trigger 3   | 29
@@ -44,6 +45,8 @@ GPIO           led_bank;
 bool           test = false; // Used to test the Sweep LED
 //Initialize led1. We'll plug it into pin 28.
 //false here indicates the value is uninverted
+
+bool DEBUG = false;
 
 
 // KnobHandler functions
@@ -369,6 +372,7 @@ float OutAmp::Process(float in)
 // Debug functions
 void PrintKnobValues()
 {
+    // Raw input values
     hw.Print("Volume: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(VolumeKnob)));
     hw.Print("   Decay:  " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(DecayKnob)));
     hw.Print("   Depth:  " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(DepthKnob)));
@@ -378,6 +382,7 @@ void PrintKnobValues()
     hw.Print("   Rate:   " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(RateKnob)));
     hw.PrintLine("");
 
+    // Class attribute values
     // hw.Print("Volume: " FLT_FMT3, FLT_VAR3(out_amp->VolumeValue));
     // hw.Print("   Decay:  " FLT_FMT3, FLT_VAR3(envelope->ReleaseValue));
     // hw.Print("   Depth:  " FLT_FMT3, FLT_VAR3(lfo->DepthValue));
@@ -552,14 +557,16 @@ int main(void)
     button_handler->InitAll();
     InitComponents(SAMPLE_RATE, BLOCK_SIZE);
 
-    // hw.StartLog(true);
-    // hw.PrintLine("Daisy Dub Siren");
+    if(DEBUG)
+    {
+        hw.StartLog(true);
+        hw.PrintLine("Daisy Dub Siren");
+    }
+
     hw.StartAudio(AudioCallback);
 
     while(1)
     {
-        // hw.PrintLine("Monitoring...");
-
         knob_handler->UpdateAll();
         button_handler->DebounceAll();
         button_handler->UpdateAll();
@@ -574,10 +581,13 @@ int main(void)
         led_sweep.Write(button_handler->sweepToTuneState);
         led_bank.Write(test);
 
-        // PrintKnobValues();
-        // PrintButtonStates();
-        // PrintOutputs();
-        // hw.PrintLine("Active Trigger: %d", triggers->LastIndex);
-        // System::Delay(10);
+        if(DEBUG)
+        {
+            // PrintKnobValues();
+            // PrintButtonStates();
+            // PrintOutputs();
+            // hw.PrintLine("Active Trigger: %d", triggers->LastIndex);
+            // System::Delay(10);
+        }
     }
 }
