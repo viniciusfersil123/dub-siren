@@ -105,6 +105,7 @@ class Triggers
     bool Triggered();
     bool Pressed();
     bool Released();
+    void ClearTriggered();
     bool IsBankSelectActive = false;
 };
 // Triggers

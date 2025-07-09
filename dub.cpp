@@ -13,7 +13,8 @@ Tune   | 24
 Sweep  | 25
 Rate   | 26
 
-BUTTON      | PIN NUMBER ------------------------
+BUTTON      | PIN NUMBER
+------------------------
 Trigger 1   | 27
 Trigger 2   | 28
 Trigger 3   | 29
@@ -41,7 +42,12 @@ Vcf*           vcf;
 OutAmp*        out_amp;
 GPIO           led_sweep;
 GPIO           led_bank;
-bool           test = false;
+bool           test = false; // Used to test the Sweep LED
+//Initialize led1. We'll plug it into pin 28.
+//false here indicates the value is uninverted
+
+bool DEBUG = false;
+
 
 // KnobHandler functions
 void KnobHandlerDaisy::InitAll()
@@ -101,17 +107,21 @@ void ButtonHandlerDaisy::DebounceAll()
 
 void ButtonHandlerDaisy::UpdateAll()
 {
-    // Update trigger states
+    // Update trigger states with latch mechanism
     for(int i = 0; i < 4; i++)
     {
-        this->triggersStates[i][0]
-            = this->triggers[i].RisingEdge(); // acabou de ser pressionado
-        if(this->triggersStates[i][0])
-            this->LastIndex = i; // atualiza o último índice
-        this->triggersStates[i][1]
-            = this->triggers[i].Pressed(); // está pressionado no momento
-        this->triggersStates[i][2]
-            = this->triggers[i].FallingEdge(); // acabou de ser solto
+        // Only set triggered to true, don't clear it here (latch mechanism)
+        if(this->triggers[i].RisingEdge())
+        {
+            this->triggersStates[i][0] = true; // Latch the trigger
+            this->LastIndex            = i;
+        }
+
+        // Trigger is being pressed
+        this->triggersStates[i][1] = this->triggers[i].Pressed();
+
+        // Trigger is released
+        this->triggersStates[i][2] = this->triggers[i].FallingEdge();
     }
 
     // Update bank select and sweep to tune states
@@ -189,6 +199,18 @@ bool Triggers::Released()
             return true;
     }
     return false;
+}
+
+void Triggers::ClearTriggered()
+{
+    for(int i = 0; i < 4; i++)
+    {
+        if(button_handler->triggersStates[i][0])
+        {
+            button_handler->triggersStates[i][0] = false;
+            break; // Only clear one trigger per call
+        }
+    }
 }
 
 // bool Triggers::IsBankSelectActive()
@@ -299,7 +321,10 @@ void Lfo::SetFreqAll(float freq)
 void Lfo::ResetPhaseAll()
 {
     for(int i = 0; i < 4; i++)
-        this->osc[i].Reset();
+    {
+        this->osc[i].Reset(0.0f);
+        this->osc_harm[i].Reset(0.0f);
+    }
 }
 
 std::pair<float, float> Lfo::ProcessAll()
@@ -315,8 +340,6 @@ std::pair<float, float> Lfo::ProcessAll()
 
     return std::make_pair(lfo_val, modsig);
 }
-
-
 // Lfo functions
 
 
@@ -365,6 +388,7 @@ float OutAmp::Process(float in)
 // Debug functions
 void PrintKnobValues()
 {
+    // Raw input values
     hw.Print("Volume: " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(VolumeKnob)));
     hw.Print("   Decay:  " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(DecayKnob)));
     hw.Print("   Depth:  " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(DepthKnob)));
@@ -374,6 +398,7 @@ void PrintKnobValues()
     hw.Print("   Rate:   " FLT_FMT3, FLT_VAR3(hw.adc.GetFloat(RateKnob)));
     hw.PrintLine("");
 
+    // Class attribute values
     // hw.Print("Volume: " FLT_FMT3, FLT_VAR3(out_amp->VolumeValue));
     // hw.Print("   Decay:  " FLT_FMT3, FLT_VAR3(envelope->ReleaseValue));
     // hw.Print("   Depth:  " FLT_FMT3, FLT_VAR3(lfo->DepthValue));
@@ -423,7 +448,6 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // Reset envelope and LFO on trigger
         if(triggered)
         {
-            lfo->ResetPhaseAll();
             envelope->Retrigger();
         }
 
@@ -481,6 +505,12 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         float depth_exp    = powf(10.f, (depth_scaled - 1.0f))
                           * 1.0f; // maps 0→0.1, 0.5→~0.316, 1→1
         lfo->SetAmpAll(depth_exp);
+
+        if(triggered)
+        {
+            lfo->ResetPhaseAll();
+            triggers->ClearTriggered();
+        }
 
         lfo_output = lfo->ProcessAll();
         output *= lfo_output.second; // Apply amplitude modulation
@@ -548,14 +578,16 @@ int main(void)
     button_handler->InitAll();
     InitComponents(SAMPLE_RATE, BLOCK_SIZE);
 
-    // hw.StartLog(true);
-    // hw.PrintLine("Daisy Dub Siren");
+    if(DEBUG)
+    {
+        hw.StartLog(true);
+        hw.PrintLine("Daisy Dub Siren");
+    }
+
     hw.StartAudio(AudioCallback);
 
     while(1)
     {
-        // hw.PrintLine("Monitoring...");
-
         knob_handler->UpdateAll();
         button_handler->DebounceAll();
         button_handler->UpdateAll();
@@ -570,10 +602,13 @@ int main(void)
         led_sweep.Write(button_handler->sweepToTuneState);
         led_bank.Write(test);
 
-        // PrintKnobValues();
-        // PrintButtonStates();
-        // PrintOutputs();
-        // hw.PrintLine("Active Trigger: %d", triggers->LastIndex);
-        // System::Delay(10);
+        if(DEBUG)
+        {
+            // PrintKnobValues();
+            // PrintButtonStates();
+            // PrintOutputs();
+            // hw.PrintLine("Active Trigger: %d", triggers->LastIndex);
+            // System::Delay(10);
+        }
     }
 }
