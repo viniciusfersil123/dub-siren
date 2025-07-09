@@ -81,9 +81,9 @@ class Sweep
         this->envelope.SetSustainLevel(ADSR_SUSTAIN_LEVEL);
     }
 
-    float SweepValue;
+    float SweepValue; // Knob value from 0.0f to 1.0f
     bool  IsSweepToTuneActive;
-
+    float CutoffFreq;
 
     Adsr  envelope;
     float ReleaseValue;  // Knob value from 0.0f to 1.0f

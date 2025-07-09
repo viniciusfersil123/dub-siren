@@ -29,7 +29,7 @@ using namespace daisysp;
 KnobHandlerDaisy*   knob_handler   = new KnobHandlerDaisy();
 ButtonHandlerDaisy* button_handler = new ButtonHandlerDaisy();
 int                 SAMPLE_RATE = 0, BLOCK_SIZE = 0;
-float output, adsr_vcf, adsr_output, vco_output, vco_modulation, cutoff_freq;
+float               output, adsr_vcf, adsr_output, vco_output, vco_modulation;
 std::pair<float, float> lfo_output = std::make_pair(0, 0);
 
 // Dub Siren components
@@ -359,9 +359,9 @@ float Vco::Process()
 // Vcf functions
 void Vcf::SetFreq(float freq)
 {
-    freq = freq * SAMPLE_RATE; // Must be normalized to sample rate
-    // Scale exponentially to make parameter more intuitive
-    this->filter.SetFreq(freq);
+    // Svf filter accepts frequency up to SAMPLE_RATE / 3
+    float limited_freq = fclamp(freq, VCF_MIN_FREQ, SAMPLE_RATE / 4);
+    this->filter.SetFreq(limited_freq);
 }
 
 float Vcf::Process(float in)
@@ -461,39 +461,33 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // --- Filter frequency (VCF) logic ---
         if(pressed)
         {
-            // When pressed, control VCF freq with sweep knob linearly
-            {
-                float exp_cutoff
-                    = VCF_MIN_FREQ
-                      * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, sweepVal);
-                cutoff_freq = exp_cutoff / SAMPLE_RATE;
-            }
-
-            sweep->SweepValue = cutoff_freq;
-            vcf->SetFreq(cutoff_freq);
+            // When pressed, control VCF freq with sweep knob using steep exponential curve
+            float exponent = powf(sweepVal, 0.5f);
+            sweep->CutoffFreq
+                = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, exponent);
+            vcf->SetFreq(sweep->CutoffFreq);
         }
         else
         {
-            // When not pressed, modulate VCF freq based on envelope
-            {
-                float freq;
-                if(sweepVal < 0.5f)
-                {
-                    freq = ((1.0f - adsr_output) * VCF_MAX_FREQ)
-                           + (VCF_MIN_FREQ + sweepVal * VCF_MAX_FREQ);
-                }
-                else
-                {
-                    freq = (adsr_output * sweepVal * VCF_MAX_FREQ)
-                           + (VCF_MAX_FREQ - (VCF_MAX_FREQ * sweepVal));
-                }
+            // When not pressed, modulate VCF freq based on envelope and sweep direction
+            float cutoff;
 
-                // Normalize to [0,1] for exponential curve
-                float norm = fclamp(freq / VCF_MAX_FREQ, 0.f, 1.f);
-                float exp_freq
-                    = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, norm);
-                vcf->SetFreq(exp_freq / SAMPLE_RATE);
+            // Linearly interpolate the cutoff frequency
+            // start_freq + (end_freq - start_freq) * envelope_progress
+            if(sweepVal < 0.5f) // Sweep goes up
+            {
+                cutoff = sweep->CutoffFreq
+                         + (VCF_MAX_FREQ - sweep->CutoffFreq)
+                               * (1.0f - adsr_output);
             }
+            else // Sweep goes down
+            {
+                cutoff = sweep->CutoffFreq
+                         + (VCF_MIN_FREQ - sweep->CutoffFreq)
+                               * (1.0f - adsr_output);
+            }
+
+            vcf->SetFreq(cutoff);
         }
 
         // Initial output from envelope
@@ -502,8 +496,8 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // --- LFO processing ---
         lfo->SetFreqAll(LFO_MAX_FREQ * lfo->RateValue);
         float depth_scaled = fclamp(lfo->DepthValue, 0.f, 1.f);
-        float depth_exp    = powf(10.f, (depth_scaled - 1.0f))
-                          * 1.0f; // maps 0→0.1, 0.5→~0.316, 1→1
+        // maps 0→0.1, 0.5→~0.316, 1→1
+        float depth_exp = powf(10.f, (depth_scaled - 1.0f));
         lfo->SetAmpAll(depth_exp);
 
         if(triggered)
@@ -608,7 +602,7 @@ int main(void)
             // PrintButtonStates();
             // PrintOutputs();
             // hw.PrintLine("Active Trigger: %d", triggers->LastIndex);
-            // System::Delay(10);
+            System::Delay(10);
         }
     }
 }
