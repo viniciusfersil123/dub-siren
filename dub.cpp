@@ -75,7 +75,7 @@ void KnobHandlerDaisy::UpdateAll()
     sweep->ReleaseValue = hw.adc.GetFloat(SweepKnob);
 
     // LFO depth and rate knobs
-    lfo->DepthValue = hw.adc.GetFloat(DepthKnob);
+    lfo->DepthValue = fclamp(hw.adc.GetFloat(DepthKnob), 0.f, 1.f);
     lfo->RateValue  = hw.adc.GetFloat(RateKnob);
 
     // OutAmp volume knob
@@ -244,7 +244,7 @@ void Sweep::Retrigger()
 // Sweep functions
 
 
-// Lfo functions
+// --- Lfo functions ---
 void Lfo::UpdateWaveforms(int index, bool bankB)
 {
     if(bankB)
@@ -303,7 +303,9 @@ float Lfo::MixLfoSignals(int index, bool bankB)
 void Lfo::SetAmpAll(float amp)
 {
     for(int i = 0; i < 4; i++)
+    {
         this->osc[i].SetAmp(amp);
+    }
 }
 
 void Lfo::SetFreqAll(float freq)
@@ -340,7 +342,7 @@ std::pair<float, float> Lfo::ProcessAll()
 
     return std::make_pair(lfo_val, modsig);
 }
-// Lfo functions
+// --- Lfo functions ---
 
 
 // Vco functions
@@ -494,10 +496,9 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         output = adsr_output;
 
         // --- LFO processing ---
-        lfo->SetFreqAll(LFO_MAX_FREQ * lfo->RateValue);
-        float depth_scaled = fclamp(lfo->DepthValue, 0.f, 1.f);
+        lfo->SetFreqAll(fmap(lfo->RateValue, LFO_MIN_FREQ, LFO_MAX_FREQ));
         // maps 0→0.1, 0.5→~0.316, 1→1
-        float depth_exp = powf(10.f, (depth_scaled - 1.0f));
+        float depth_exp = powf(10.f, (lfo->DepthValue - 1.0f));
         lfo->SetAmpAll(depth_exp);
 
         if(triggered)
