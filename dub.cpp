@@ -79,7 +79,8 @@ void KnobHandlerDaisy::UpdateAll()
     lfo->RateValue  = hw.adc.GetFloat(RateKnob);
 
     // OutAmp volume knob
-    out_amp->VolumeValue = hw.adc.GetFloat(VolumeKnob);
+    out_amp->VolumeValue
+        = fmap(hw.adc.GetFloat(VolumeKnob), 0.f, 1.f, Mapping::EXP);
 }
 // KnobHandler functions
 
@@ -463,12 +464,14 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // --- Filter frequency (VCF) logic ---
         // static float cutoff_exponent = 0.0f;
         float cutoff_exponent = sweepVal;
-        
+
         if(pressed)
         {
             // When pressed, control VCF freq with sweep knob using exponential curve
             // cutoff_exponent = powf(sweepVal, 0.5f);
-            sweep->CutoffFreq = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, cutoff_exponent);
+            sweep->CutoffFreq
+                = VCF_MIN_FREQ
+                  * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, cutoff_exponent);
             vcf->SetFreq(sweep->CutoffFreq);
         }
         else
@@ -487,10 +490,12 @@ void AudioCallback(AudioHandle::InputBuffer  in,
             }
 
             // Exponentially interpolate in the exponent domain
-            float sweep_exp = start_exp + (end_exp - start_exp) * (1.0f - adsr_output);
-            
+            float sweep_exp
+                = start_exp + (end_exp - start_exp) * (1.0f - adsr_output);
+
             // Apply the exponential mapping
-            float cutoff = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, sweep_exp);
+            float cutoff
+                = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, sweep_exp);
 
             vcf->SetFreq(cutoff);
         }
