@@ -67,7 +67,7 @@ void KnobHandlerDaisy::InitAll()
 void KnobHandlerDaisy::UpdateAll()
 {
     // VCO tune knobs
-    vco->TuneValue = hw.adc.GetFloat(TuneKnob);
+    vco->TuneValue = fclamp(hw.adc.GetFloat(TuneKnob), 0.f, 1.f);
 
     // Decay Envelope knobs
     envelope->ReleaseValue = hw.adc.GetFloat(DecayKnob);
@@ -507,41 +507,39 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         }
 
         lfo_output = lfo->ProcessAll();
-        output *= lfo_output.second; // Apply amplitude modulation
 
         // --- VCO frequency and modulation ---
-        vco_modulation    = (lfo_output.first + 1.0f) * 0.5f; // Normalize [0,1]
-        float tune_scaled = fclamp(vco->TuneValue, 0.f, 1.f);
-        float tune_exp
-            = VCO_MIN_FREQ
-              * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, tune_scaled * vco_modulation);
-        float vco_freq = tune_exp;
+        vco_modulation = (lfo_output.first + 1.0f) * 0.5f; // Normalize [0,1]
+        // VCO frequency is exponentially mapped
+        float vco_freq = VCO_MIN_FREQ
+                         * powf(VCO_MAX_FREQ / VCO_MIN_FREQ,
+                                vco->TuneValue * vco_modulation);
 
         // Optional sweep modulation mapped to VCO frequency
         if(button_handler->sweepToTuneState)
         {
-            float flippedSweep = 1.0f - sweepVal;
+            // Calculate start and end exponents for exponential interpolation
+            float start_exp = vco->TuneValue * vco_modulation;
+            float end_exp;
 
-            if(flippedSweep < 0.5f)
+            if(sweepVal < 0.5f) // Sweep goes up
             {
-                vco_freq -= ((1.0f - flippedSweep * 2.0f) * 1000.0f)
-                            * (1.0f - adsr_output);
+                end_exp = 1.0f; // VCO_MAX_FREQ exponent
             }
-            else
+            else // Sweep goes down
             {
-                vco_freq
-                    -= ((flippedSweep - 0.5f) * 2.0f * 1000.0f) * adsr_output;
+                end_exp = 0.0f; // VCO_MIN_FREQ exponent
             }
 
+            // Linearly interpolate the exponent
+            float sweep_exp
+                = start_exp + (end_exp - start_exp) * (1.0f - adsr_output);
+            sweep_exp *= 0.5f;
 
-            // Clamp to avoid glitch or crash
-            if(vco_freq < 1.0f)
-                vco_freq = 1.0f;
-
-            if(vco_freq > 20000.0f)
-                vco_freq = 20000.0f;
+            // Apply the exponential mapping
+            vco_freq
+                = VCO_MIN_FREQ * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, sweep_exp);
         }
-
 
         vco->SetFreq(vco_freq);
         vco_output = vco->Process();
