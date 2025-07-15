@@ -337,8 +337,8 @@ std::pair<float, float> Lfo::ProcessAll()
     UpdateWaveforms(index, bankB);
     float lfo_val = MixLfoSignals(index, bankB);
 
-    float dc_offset = 0.5f * (1 - fclamp(DepthValue, 0.f, 1.f));
-    float modsig    = dc_offset + lfo_val;
+    float scaled_lfo = lfo_val * DepthValue; // Scale LFO to [-depth,+depth]
+    float modsig     = 0.5f + scaled_lfo;    // Add DC offset
 
     return std::make_pair(lfo_val, modsig);
 }
@@ -510,17 +510,27 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         lfo_output = lfo->ProcessAll();
 
         // --- VCO frequency and modulation ---
-        vco_modulation = (lfo_output.first + 1.0f) * 0.5f; // Normalize [0,1]
+        vco_modulation = lfo_output.second;
+
+        // Calculate VCO frequency with proper depth scaling
+        // Convert [0,1] range to [-1,1] and scale by depth, then add to base tune
+        float modulation_amount
+            = (vco_modulation - 0.5f) * 2.0f * lfo->DepthValue;
+        float tune_with_mod
+            = vco->TuneValue
+              + modulation_amount * 0.5f; // Scale modulation range
+        tune_with_mod
+            = fclamp(tune_with_mod, 0.0f, 1.0f); // Keep within valid range
+
         // VCO frequency is exponentially mapped
-        float vco_freq = VCO_MIN_FREQ
-                         * powf(VCO_MAX_FREQ / VCO_MIN_FREQ,
-                                vco->TuneValue * vco_modulation);
+        float vco_freq
+            = VCO_MIN_FREQ * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, tune_with_mod);
 
         // Optional sweep modulation mapped to VCO frequency
         if(button_handler->sweepToTuneState)
         {
             // Calculate start and end exponents for exponential interpolation
-            float start_exp = vco->TuneValue * vco_modulation;
+            float start_exp = tune_with_mod;
             float end_exp;
 
             if(sweepVal < 0.5f) // Sweep goes up
@@ -532,10 +542,9 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                 end_exp = 0.0f; // VCO_MIN_FREQ exponent
             }
 
-            // Linearly interpolate the exponent
+            // Exponentially interpolate in the exponent domain
             float sweep_exp
                 = start_exp + (end_exp - start_exp) * (1.0f - adsr_output);
-            sweep_exp *= 0.5f;
 
             // Apply the exponential mapping
             vco_freq
