@@ -461,33 +461,40 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         adsr_output = envelope->Process(pressed);
 
         // --- Filter frequency (VCF) logic ---
+        // static float cutoff_exponent = 0.0f;
+        float cutoff_exponent = sweepVal;
+
         if(pressed)
         {
-            // When pressed, control VCF freq with sweep knob using steep exponential curve
-            float exponent = powf(sweepVal, 0.5f);
+            // When pressed, control VCF freq with sweep knob using exponential curve
+            // cutoff_exponent = powf(sweepVal, 0.5f);
             sweep->CutoffFreq
-                = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, exponent);
+                = VCF_MIN_FREQ
+                  * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, cutoff_exponent);
             vcf->SetFreq(sweep->CutoffFreq);
         }
         else
         {
             // When not pressed, modulate VCF freq based on envelope and sweep direction
-            float cutoff;
+            float start_exp = cutoff_exponent;
+            float end_exp;
 
-            // Linearly interpolate the cutoff frequency
-            // start_freq + (end_freq - start_freq) * envelope_progress
             if(sweepVal < 0.5f) // Sweep goes up
             {
-                cutoff = sweep->CutoffFreq
-                         + (VCF_MAX_FREQ - sweep->CutoffFreq)
-                               * (1.0f - adsr_output);
+                end_exp = 1.0f; // VCF_MAX_FREQ exponent
             }
             else // Sweep goes down
             {
-                cutoff = sweep->CutoffFreq
-                         + (VCF_MIN_FREQ - sweep->CutoffFreq)
-                               * (1.0f - adsr_output);
+                end_exp = 0.0f; // VCF_MIN_FREQ exponent
             }
+
+            // Exponentially interpolate in the exponent domain
+            float sweep_exp
+                = start_exp + (end_exp - start_exp) * (1.0f - adsr_output);
+
+            // Apply the exponential mapping
+            float cutoff
+                = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, sweep_exp);
 
             vcf->SetFreq(cutoff);
         }
