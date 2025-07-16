@@ -75,8 +75,9 @@ void KnobHandlerDaisy::UpdateAll()
     sweep->ReleaseValue = hw.adc.GetFloat(SweepKnob);
 
     // LFO depth and rate knobs
-    lfo->DepthValue = fclamp(hw.adc.GetFloat(DepthKnob), 0.f, 1.f);
-    lfo->RateValue  = hw.adc.GetFloat(RateKnob);
+    lfo->DepthValue = hw.adc.GetFloat(DepthKnob);
+    lfo->RateValue  = fmap(
+        hw.adc.GetFloat(RateKnob), LFO_MIN_FREQ, LFO_MAX_FREQ, Mapping::EXP);
 
     // OutAmp volume knob
     out_amp->VolumeValue
