@@ -79,7 +79,8 @@ void KnobHandlerDaisy::UpdateAll()
     lfo->RateValue  = hw.adc.GetFloat(RateKnob);
 
     // OutAmp volume knob
-    out_amp->VolumeValue = hw.adc.GetFloat(VolumeKnob);
+    out_amp->VolumeValue
+        = fmap(hw.adc.GetFloat(VolumeKnob), 0.f, 1.f, Mapping::EXP);
 }
 // KnobHandler functions
 
