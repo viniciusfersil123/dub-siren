@@ -75,7 +75,7 @@ void KnobHandlerDaisy::UpdateAll()
     sweep->ReleaseValue = hw.adc.GetFloat(SweepKnob);
 
     // LFO depth and rate knobs
-    lfo->DepthValue = hw.adc.GetFloat(DepthKnob);
+    lfo->DepthValue = fclamp(hw.adc.GetFloat(DepthKnob), 0.f, 1.f);
     lfo->RateValue  = hw.adc.GetFloat(RateKnob);
 
     // OutAmp volume knob
@@ -244,7 +244,7 @@ void Sweep::Retrigger()
 // Sweep functions
 
 
-// Lfo functions
+// --- Lfo functions ---
 void Lfo::UpdateWaveforms(int index, bool bankB)
 {
     if(bankB)
@@ -303,7 +303,9 @@ float Lfo::MixLfoSignals(int index, bool bankB)
 void Lfo::SetAmpAll(float amp)
 {
     for(int i = 0; i < 4; i++)
+    {
         this->osc[i].SetAmp(amp);
+    }
 }
 
 void Lfo::SetFreqAll(float freq)
@@ -335,12 +337,12 @@ std::pair<float, float> Lfo::ProcessAll()
     UpdateWaveforms(index, bankB);
     float lfo_val = MixLfoSignals(index, bankB);
 
-    float dc_offset = 0.5f * (1 - fclamp(DepthValue, 0.f, 1.f));
-    float modsig    = dc_offset + lfo_val;
+    float scaled_lfo = lfo_val * DepthValue; // Scale LFO to [-depth,+depth]
+    float modsig     = 0.5f + scaled_lfo;    // Add DC offset
 
     return std::make_pair(lfo_val, modsig);
 }
-// Lfo functions
+// --- Lfo functions ---
 
 
 // Vco functions
@@ -459,33 +461,40 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         adsr_output = envelope->Process(pressed);
 
         // --- Filter frequency (VCF) logic ---
+        // static float cutoff_exponent = 0.0f;
+        float cutoff_exponent = sweepVal;
+
         if(pressed)
         {
-            // When pressed, control VCF freq with sweep knob using steep exponential curve
-            float exponent = powf(sweepVal, 0.5f);
+            // When pressed, control VCF freq with sweep knob using exponential curve
+            // cutoff_exponent = powf(sweepVal, 0.5f);
             sweep->CutoffFreq
-                = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, exponent);
+                = VCF_MIN_FREQ
+                  * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, cutoff_exponent);
             vcf->SetFreq(sweep->CutoffFreq);
         }
         else
         {
             // When not pressed, modulate VCF freq based on envelope and sweep direction
-            float cutoff;
+            float start_exp = cutoff_exponent;
+            float end_exp;
 
-            // Linearly interpolate the cutoff frequency
-            // start_freq + (end_freq - start_freq) * envelope_progress
             if(sweepVal < 0.5f) // Sweep goes up
             {
-                cutoff = sweep->CutoffFreq
-                         + (VCF_MAX_FREQ - sweep->CutoffFreq)
-                               * (1.0f - adsr_output);
+                end_exp = 1.0f; // VCF_MAX_FREQ exponent
             }
             else // Sweep goes down
             {
-                cutoff = sweep->CutoffFreq
-                         + (VCF_MIN_FREQ - sweep->CutoffFreq)
-                               * (1.0f - adsr_output);
+                end_exp = 0.0f; // VCF_MIN_FREQ exponent
             }
+
+            // Exponentially interpolate in the exponent domain
+            float sweep_exp
+                = start_exp + (end_exp - start_exp) * (1.0f - adsr_output);
+
+            // Apply the exponential mapping
+            float cutoff
+                = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, sweep_exp);
 
             vcf->SetFreq(cutoff);
         }
@@ -494,10 +503,9 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         output = adsr_output;
 
         // --- LFO processing ---
-        lfo->SetFreqAll(LFO_MAX_FREQ * lfo->RateValue);
-        float depth_scaled = fclamp(lfo->DepthValue, 0.f, 1.f);
+        lfo->SetFreqAll(fmap(lfo->RateValue, LFO_MIN_FREQ, LFO_MAX_FREQ));
         // maps 0→0.1, 0.5→~0.316, 1→1
-        float depth_exp = powf(10.f, (depth_scaled - 1.0f));
+        float depth_exp = powf(10.f, (lfo->DepthValue - 1.0f));
         lfo->SetAmpAll(depth_exp);
 
         if(triggered)
@@ -509,17 +517,27 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         lfo_output = lfo->ProcessAll();
 
         // --- VCO frequency and modulation ---
-        vco_modulation = (lfo_output.first + 1.0f) * 0.5f; // Normalize [0,1]
+        vco_modulation = lfo_output.second;
+
+        // Calculate VCO frequency with proper depth scaling
+        // Convert [0,1] range to [-1,1] and scale by depth, then add to base tune
+        float modulation_amount
+            = (vco_modulation - 0.5f) * 2.0f * lfo->DepthValue;
+        float tune_with_mod
+            = vco->TuneValue
+              + modulation_amount * 0.5f; // Scale modulation range
+        tune_with_mod
+            = fclamp(tune_with_mod, 0.0f, 1.0f); // Keep within valid range
+
         // VCO frequency is exponentially mapped
-        float vco_freq = VCO_MIN_FREQ
-                         * powf(VCO_MAX_FREQ / VCO_MIN_FREQ,
-                                vco->TuneValue * vco_modulation);
+        float vco_freq
+            = VCO_MIN_FREQ * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, tune_with_mod);
 
         // Optional sweep modulation mapped to VCO frequency
         if(button_handler->sweepToTuneState)
         {
             // Calculate start and end exponents for exponential interpolation
-            float start_exp = vco->TuneValue * vco_modulation;
+            float start_exp = tune_with_mod;
             float end_exp;
 
             if(sweepVal < 0.5f) // Sweep goes up
@@ -531,10 +549,9 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                 end_exp = 0.0f; // VCO_MIN_FREQ exponent
             }
 
-            // Linearly interpolate the exponent
+            // Exponentially interpolate in the exponent domain
             float sweep_exp
                 = start_exp + (end_exp - start_exp) * (1.0f - adsr_output);
-            sweep_exp *= 0.5f;
 
             // Apply the exponential mapping
             vco_freq
