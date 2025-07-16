@@ -505,8 +505,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         output = adsr_output;
 
         // --- LFO processing ---
-        lfo->SetFreqAll(fmap(lfo->RateValue, LFO_MIN_FREQ, LFO_MAX_FREQ));
-        // maps 0→0.1, 0.5→~0.316, 1→1
+        lfo->SetFreqAll(lfo->RateValue);
         float depth_exp = powf(10.f, (lfo->DepthValue - 1.0f));
         lfo->SetAmpAll(depth_exp);
 
