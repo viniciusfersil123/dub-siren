@@ -75,8 +75,9 @@ void KnobHandlerDaisy::UpdateAll()
     sweep->ReleaseValue = hw.adc.GetFloat(SweepKnob);
 
     // LFO depth and rate knobs
-    lfo->DepthValue = fclamp(hw.adc.GetFloat(DepthKnob), 0.f, 1.f);
-    lfo->RateValue  = hw.adc.GetFloat(RateKnob);
+    lfo->DepthValue = hw.adc.GetFloat(DepthKnob);
+    lfo->RateValue  = fmap(
+        hw.adc.GetFloat(RateKnob), LFO_MIN_FREQ, LFO_MAX_FREQ, Mapping::EXP);
 
     // OutAmp volume knob
     out_amp->VolumeValue
@@ -504,8 +505,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         output = adsr_output;
 
         // --- LFO processing ---
-        lfo->SetFreqAll(fmap(lfo->RateValue, LFO_MIN_FREQ, LFO_MAX_FREQ));
-        // maps 0→0.1, 0.5→~0.316, 1→1
+        lfo->SetFreqAll(lfo->RateValue);
         float depth_exp = powf(10.f, (lfo->DepthValue - 1.0f));
         lfo->SetAmpAll(depth_exp);
 
