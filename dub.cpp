@@ -42,6 +42,7 @@ Vcf*           vcf;
 OutAmp*        out_amp;
 GPIO           led_sweep;
 GPIO           led_bank;
+Led            led_lfo;
 bool           test = false; // Used to test the Sweep LED
 //Initialize led1. We'll plug it into pin 28.
 //false here indicates the value is uninverted
@@ -449,6 +450,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         bool  pressed   = triggers->Pressed();
         float sweepVal  = hw.adc.GetFloat(SweepKnob);
 
+
         // Reset envelope and LFO on trigger
         if(triggered)
         {
@@ -563,6 +565,11 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         vco_output = vco->Process();
         output *= vco_output;
 
+        // -- LFO LED control ---
+        led_lfo.Set((lfo_output.first * 0.5f + 0.5f) * adsr_output);
+
+        led_lfo.Update();
+
         // --- Apply VCF low-pass filter ---
         output = vcf->Process(output);
 
@@ -584,6 +591,7 @@ int main(void)
     BLOCK_SIZE  = hw.AudioBlockSize();
     led_sweep.Init(daisy::seed::D27, GPIO::Mode::OUTPUT);
     led_bank.Init(daisy::seed::D28, GPIO::Mode::OUTPUT);
+    led_lfo.Init(daisy::seed::D29, false, SAMPLE_RATE );
     knob_handler->InitAll();
     button_handler->InitAll();
     InitComponents(SAMPLE_RATE, BLOCK_SIZE);
@@ -611,6 +619,9 @@ int main(void)
         }
         led_sweep.Write(button_handler->sweepToTuneState);
         led_bank.Write(test);
+
+
+        //Update the led to reflect the set value
 
         if(DEBUG)
         {
