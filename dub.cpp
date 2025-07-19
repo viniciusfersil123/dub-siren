@@ -548,27 +548,23 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // Optional sweep modulation mapped to VCO frequency
         if(button_handler->sweepToTuneState)
         {
-            // Calculate start and end exponents for exponential interpolation
-            float start_exp = tune_with_mod;
-            float end_exp;
+            float direction = 2.0f * (sweepVal - 0.5f);
+            float threshold = 0.2f;
+            float abs_dir   = fabsf(direction);
+            float intensity
+                = (abs_dir > threshold)
+                      ? powf((abs_dir - threshold) / (1.0f - threshold), 2.0f)
+                      : 0.0f;
 
-            if(sweepVal < 0.5f) // Sweep goes up
-            {
-                end_exp = 1.0f; // VCO_MAX_FREQ exponent
-            }
-            else // Sweep goes down
-            {
-                end_exp = 0.0f; // VCO_MIN_FREQ exponent
-            }
+            float end_exp   = 0.5f - 0.5f * direction;
+            float sweep_exp = tune_with_mod
+                              + (end_exp - tune_with_mod) * (1.0f - adsr_output)
+                                    * intensity;
 
-            // Exponentially interpolate in the exponent domain
-            float sweep_exp
-                = start_exp + (end_exp - start_exp) * (1.0f - adsr_output);
-
-            // Apply the exponential mapping
             vco_freq
                 = VCO_MIN_FREQ * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, sweep_exp);
         }
+
 
         vco->SetFreq(vco_freq);
         vco_output = vco->Process();
@@ -600,7 +596,7 @@ int main(void)
     BLOCK_SIZE  = hw.AudioBlockSize();
     led_sweep.Init(daisy::seed::D27, GPIO::Mode::OUTPUT);
     led_bank.Init(daisy::seed::D28, GPIO::Mode::OUTPUT);
-    led_lfo.Init(daisy::seed::D29, false, SAMPLE_RATE );
+    led_lfo.Init(daisy::seed::D29, false, SAMPLE_RATE);
     knob_handler->InitAll();
     button_handler->InitAll();
     InitComponents(SAMPLE_RATE, BLOCK_SIZE);
