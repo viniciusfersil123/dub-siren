@@ -479,29 +479,38 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         }
         else
         {
-            // When not pressed, modulate VCF freq based on envelope and sweep direction
-            float start_exp = cutoff_exponent;
-            float end_exp;
+            float base_exp = cutoff_exponent;
 
-            if(sweepVal < 0.5f) // Sweep goes up
-            {
-                end_exp = 1.0f; // VCF_MAX_FREQ exponent
-            }
-            else // Sweep goes down
-            {
-                end_exp = 0.0f; // VCF_MIN_FREQ exponent
-            }
+            // Map sweepVal ∈ [0,1] to [-1,1]
+            float direction = 2.0f * (sweepVal - 0.5f);
 
-            // Exponentially interpolate in the exponent domain
+            // Increase dead zone using a threshold (e.g. 0.2)
+            float threshold = 0.2f;
+
+            // Calculate sweep intensity: zero in center, max at extremes, smoothed
+            float abs_dir = fabsf(direction);
+            float intensity
+                = (abs_dir > threshold)
+                      ? powf((abs_dir - threshold) / (1.0f - threshold), 2.0f)
+                      : 0.0f;
+
+            // Compute target exponent:
+            // direction < 0 → freq goes up → end_exp = 1
+            // direction > 0 → freq goes down → end_exp = 0
+            float end_exp = 0.5f - 0.5f * direction;
+
+            // Blend start and end exponents modulated by ADSR and sweep intensity
             float sweep_exp
-                = start_exp + (end_exp - start_exp) * (1.0f - adsr_output);
+                = base_exp
+                  + (end_exp - base_exp) * (1.0f - adsr_output) * intensity;
 
-            // Apply the exponential mapping
+            // Final exponential frequency
             float cutoff
                 = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, sweep_exp);
 
             vcf->SetFreq(cutoff);
         }
+
 
         // Initial output from envelope
         output = adsr_output;
@@ -539,27 +548,23 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // Optional sweep modulation mapped to VCO frequency
         if(button_handler->sweepToTuneState)
         {
-            // Calculate start and end exponents for exponential interpolation
-            float start_exp = tune_with_mod;
-            float end_exp;
+            float direction = 2.0f * (sweepVal - 0.5f);
+            float threshold = 0.2f;
+            float abs_dir   = fabsf(direction);
+            float intensity
+                = (abs_dir > threshold)
+                      ? powf((abs_dir - threshold) / (1.0f - threshold), 2.0f)
+                      : 0.0f;
 
-            if(sweepVal < 0.5f) // Sweep goes up
-            {
-                end_exp = 1.0f; // VCO_MAX_FREQ exponent
-            }
-            else // Sweep goes down
-            {
-                end_exp = 0.0f; // VCO_MIN_FREQ exponent
-            }
+            float end_exp   = 0.5f - 0.5f * direction;
+            float sweep_exp = tune_with_mod
+                              + (end_exp - tune_with_mod) * (1.0f - adsr_output)
+                                    * intensity;
 
-            // Exponentially interpolate in the exponent domain
-            float sweep_exp
-                = start_exp + (end_exp - start_exp) * (1.0f - adsr_output);
-
-            // Apply the exponential mapping
             vco_freq
                 = VCO_MIN_FREQ * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, sweep_exp);
         }
+
 
         vco->SetFreq(vco_freq);
         vco_output = vco->Process();
@@ -591,7 +596,7 @@ int main(void)
     BLOCK_SIZE  = hw.AudioBlockSize();
     led_sweep.Init(daisy::seed::D27, GPIO::Mode::OUTPUT);
     led_bank.Init(daisy::seed::D28, GPIO::Mode::OUTPUT);
-    led_lfo.Init(daisy::seed::D29, false, SAMPLE_RATE );
+    led_lfo.Init(daisy::seed::D29, false, SAMPLE_RATE);
     knob_handler->InitAll();
     button_handler->InitAll();
     InitComponents(SAMPLE_RATE, BLOCK_SIZE);
