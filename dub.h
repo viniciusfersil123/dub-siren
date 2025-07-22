@@ -8,8 +8,8 @@ using namespace daisysp;
 
 // Constants
 #define VCO_WAVEFORM Oscillator::WAVE_POLYBLEP_SQUARE
-#define VCO_MIN_FREQ 30.0f
-#define VCO_MAX_FREQ 9000.0f
+#define VCO_MIN_FREQ 32.703f // Corresponds to a midi C1
+#define VCO_MAX_FREQ 1046.5f // Corresponds to a midi C6
 
 #define ADSR_ATTACK_TIME 0.3f
 #define ADSR_DECAY_TIME 0.1f
