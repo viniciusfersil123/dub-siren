@@ -110,33 +110,59 @@ void ButtonHandlerDaisy::DebounceAll()
 
 void ButtonHandlerDaisy::UpdateAll()
 {
-    // Update trigger states with latch mechanism
+    static std::vector<int> press_stack; // pilha de botões pressionados
+
     for(int i = 0; i < 4; i++)
     {
-        // Only set triggered to true, don't clear it here (latch mechanism)
+        // Atualiza estados
         if(this->triggers[i].RisingEdge())
         {
-            this->triggersStates[i][0] = true; // Latch the trigger
-            this->LastIndex            = i;
+            this->triggersStates[i][0] = true;
+            this->triggersStates[i][1] = true;
+
+            // Remove se já estiver na pilha e adiciona no topo
+            press_stack.erase(
+                std::remove(press_stack.begin(), press_stack.end(), i),
+                press_stack.end());
+            press_stack.push_back(i);
         }
+        else if(this->triggers[i].FallingEdge())
+        {
+            this->triggersStates[i][2] = true;
+            this->triggersStates[i][1] = false;
 
-        // Trigger is being pressed
-        this->triggersStates[i][1] = this->triggers[i].Pressed();
-
-        // Trigger is released
-        this->triggersStates[i][2] = this->triggers[i].FallingEdge();
+            // Remove da pilha
+            press_stack.erase(
+                std::remove(press_stack.begin(), press_stack.end(), i),
+                press_stack.end());
+        }
+        else
+        {
+            this->triggersStates[i][1] = this->triggers[i].Pressed();
+            this->triggersStates[i][0] = false;
+            this->triggersStates[i][2] = false;
+        }
     }
 
-    // Update bank select and sweep to tune states
+    // Atualiza LastIndex
+    if(!press_stack.empty())
+    {
+        this->LastIndex = press_stack.back();
+    }
+
+    // Update toggle buttons
     if(this->bankSelect.RisingEdge())
     {
         this->bankSelectState = !this->bankSelectState;
     }
+
     if(this->sweepToTune.RisingEdge())
     {
         this->sweepToTuneState = !this->sweepToTuneState;
     }
 }
+
+
 // ButtonHandler functions
 
 
@@ -337,6 +363,13 @@ std::pair<float, float> Lfo::ProcessAll()
     int  index = button_handler->LastIndex;
     bool bankB = button_handler->bankSelectState;
 
+    if(index < 0 || index >= 4)
+    {
+        // Nenhum botão pressionado → LFO continua oscilando, mas sem modulação
+        float silent = 0.0f;
+        return std::make_pair(silent, 0.5f); // DC offset neutro (0.5)
+    }
+
     UpdateWaveforms(index, bankB);
     float lfo_val = MixLfoSignals(index, bankB);
 
@@ -345,6 +378,7 @@ std::pair<float, float> Lfo::ProcessAll()
 
     return std::make_pair(lfo_val, modsig);
 }
+
 // --- Lfo functions ---
 
 
