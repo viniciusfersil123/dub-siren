@@ -489,9 +489,11 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
             // Calculate sweep intensity: zero in center, max at extremes, smoothed
             float abs_dir = fabsf(direction);
+            // Use a softer exponent for a gentler fade (try 1.2 or 1.5)
+            float sweep_exponent = 1.2f;
             float intensity
                 = (abs_dir > threshold)
-                      ? powf((abs_dir - threshold) / (1.0f - threshold), 2.0f)
+                      ? powf((abs_dir - threshold) / (1.0f - threshold), sweep_exponent)
                       : 0.0f;
 
             // Compute target exponent:
