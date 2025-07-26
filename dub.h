@@ -230,15 +230,16 @@ class ButtonHandler
         this->LastIndex        = 0;
         this->bankSelectState  = false;
         this->sweepToTuneState = false;
+        this->currentBankState = false; // Banco atualmente ativo
     }
 
     // There are 4 trigger buttons.
     // Each one has 3 states (true of false): Triggered, Pressed, Released.
-    bool triggersStates[4][3];
-    bool bankSelectState;
-    bool sweepToTuneState;
-    int  LastIndex;
-
+    bool         triggersStates[4][3];
+    bool         bankSelectState;
+    bool         sweepToTuneState;
+    int          LastIndex;
+    bool         currentBankState;
     virtual void InitAll();
     virtual void DebounceAll();
     virtual void UpdateAll();

@@ -334,14 +334,15 @@ void Lfo::ResetPhaseAll()
 
 std::pair<float, float> Lfo::ProcessAll()
 {
-    int  index = button_handler->LastIndex;
-    bool bankB = button_handler->bankSelectState;
+    int index = button_handler->LastIndex;
+    // Use o banco atualmente ativo
+    bool bankB = button_handler->currentBankState;
 
     UpdateWaveforms(index, bankB);
     float lfo_val = MixLfoSignals(index, bankB);
 
-    float scaled_lfo = lfo_val * DepthValue; // Scale LFO to [-depth,+depth]
-    float modsig     = 0.5f + scaled_lfo;    // Add DC offset
+    float scaled_lfo = lfo_val * DepthValue;
+    float modsig     = 0.5f + scaled_lfo;
 
     return std::make_pair(lfo_val, modsig);
 }
@@ -455,6 +456,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         if(triggered)
         {
             envelope->Retrigger();
+            button_handler->currentBankState = button_handler->bankSelectState;
         }
 
         // Set and process envelope
@@ -623,7 +625,8 @@ int main(void)
             test = !test;
         }
         led_sweep.Write(button_handler->sweepToTuneState);
-        led_bank.Write(test);
+        led_bank.Write(
+            button_handler->bankSelectState); // Mostra o banco pendente
 
 
         //Update the led to reflect the set value
