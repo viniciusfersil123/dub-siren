@@ -363,20 +363,34 @@ std::pair<float, float> Lfo::ProcessAll()
     int  index = button_handler->LastIndex;
     bool bankB = button_handler->bankSelectState;
 
-    if(index < 0 || index >= 4)
+    // Nova seleção → inicia crossfade
+    if(index != currIndex)
     {
-        // Nenhum botão pressionado → LFO continua oscilando, mas sem modulação
-        float silent = 0.0f;
-        return std::make_pair(silent, 0.5f); // DC offset neutro (0.5)
+        prevIndex    = currIndex;
+        currIndex    = index;
+        fadeProgress = 0.0f;
     }
 
-    UpdateWaveforms(index, bankB);
-    float lfo_val = MixLfoSignals(index, bankB);
+    fadeProgress = fminf(fadeProgress + fadeRate, 1.0f);
 
-    float scaled_lfo = lfo_val * DepthValue; // Scale LFO to [-depth,+depth]
-    float modsig     = 0.5f + scaled_lfo;    // Add DC offset
+    float out = 0.0f;
 
-    return std::make_pair(lfo_val, modsig);
+    if(currIndex >= 0)
+    {
+        UpdateWaveforms(currIndex, bankB);
+        out += MixLfoSignals(currIndex, bankB) * fadeProgress;
+    }
+
+    if(prevIndex >= 0 && fadeProgress < 1.0f)
+    {
+        UpdateWaveforms(prevIndex, bankB);
+        out += MixLfoSignals(prevIndex, bankB) * (1.0f - fadeProgress);
+    }
+
+    float scaled_lfo = out * DepthValue;
+    float modsig     = 0.5f + scaled_lfo;
+
+    return std::make_pair(out, modsig);
 }
 
 // --- Lfo functions ---
