@@ -110,33 +110,27 @@ void ButtonHandlerDaisy::DebounceAll()
 
 void ButtonHandlerDaisy::UpdateAll()
 {
-    // Update trigger states with latch mechanism
     for(int i = 0; i < 4; i++)
     {
-        // Only set triggered to true, don't clear it here (latch mechanism)
         if(this->triggers[i].RisingEdge())
         {
-            this->triggersStates[i][0] = true; // Latch the trigger
+            this->triggersStates[i][0] = true;
             this->LastIndex            = i;
         }
-
-        // Trigger is being pressed
         this->triggersStates[i][1] = this->triggers[i].Pressed();
-
-        // Trigger is released
         this->triggersStates[i][2] = this->triggers[i].FallingEdge();
     }
 
-    // Update bank select and sweep to tune states
     if(this->bankSelect.RisingEdge())
     {
         this->bankSelectState = !this->bankSelectState;
     }
     if(this->sweepToTune.RisingEdge())
     {
-        this->sweepToTuneState = !this->sweepToTuneState;
+        this->sweepToTuneState = !this->sweepToTuneState; // só o pendente
     }
 }
+
 // ButtonHandler functions
 
 
@@ -455,6 +449,10 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         if(triggered)
         {
             envelope->Retrigger();
+            // Aplicar mudanças pendentes
+            button_handler->currentBankState = button_handler->bankSelectState;
+            button_handler->sweepToTuneActive
+                = button_handler->sweepToTuneState;
         }
 
         // Set and process envelope
@@ -546,7 +544,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
             = VCO_MIN_FREQ * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, tune_with_mod);
 
         // Optional sweep modulation mapped to VCO frequency
-        if(button_handler->sweepToTuneState)
+        if(button_handler->sweepToTuneActive)
         {
             float direction = 2.0f * (sweepVal - 0.5f);
             float threshold = 0.2f;
