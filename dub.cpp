@@ -114,33 +114,58 @@ void ButtonHandlerDaisy::DebounceAll()
 
 void ButtonHandlerDaisy::UpdateAll()
 {
-    // Update trigger states with latch mechanism
+    static std::vector<int> press_stack; // pilha de botões pressionados
+
     for(int i = 0; i < 4; i++)
     {
-        // Only set triggered to true, don't clear it here (latch mechanism)
+        // Atualiza estados
         if(this->triggers[i].RisingEdge())
         {
-            this->triggersStates[i][0] = true; // Latch the trigger
-            this->LastIndex            = i;
+            this->triggersStates[i][0] = true;
+            this->triggersStates[i][1] = true;
+
+            // Remove se já estiver na pilha e adiciona no topo
+            press_stack.erase(
+                std::remove(press_stack.begin(), press_stack.end(), i),
+                press_stack.end());
+            press_stack.push_back(i);
         }
+        else if(this->triggers[i].FallingEdge())
+        {
+            this->triggersStates[i][2] = true;
+            this->triggersStates[i][1] = false;
 
-        // Trigger is being pressed
-        this->triggersStates[i][1] = this->triggers[i].Pressed();
-
-        // Trigger is released
-        this->triggersStates[i][2] = this->triggers[i].FallingEdge();
+            // Remove da pilha
+            press_stack.erase(
+                std::remove(press_stack.begin(), press_stack.end(), i),
+                press_stack.end());
+        }
+        else
+        {
+            this->triggersStates[i][1] = this->triggers[i].Pressed();
+            this->triggersStates[i][0] = false;
+            this->triggersStates[i][2] = false;
+        }
     }
 
-    // Update bank select and sweep to tune states
+    // Atualiza LastIndex
+    if(!press_stack.empty())
+    {
+        this->LastIndex = press_stack.back();
+    }
+
+    // Update toggle buttons
     if(this->bankSelect.RisingEdge())
     {
         this->bankSelectState = !this->bankSelectState;
     }
+
     if(this->sweepToTune.RisingEdge())
     {
-        this->sweepToTuneState = !this->sweepToTuneState;
+        this->sweepToTuneState = !this->sweepToTuneState; // só o pendente
     }
 }
+
 // ButtonHandler functions
 
 
@@ -338,17 +363,40 @@ void Lfo::ResetPhaseAll()
 
 std::pair<float, float> Lfo::ProcessAll()
 {
-    int  index = button_handler->LastIndex;
-    bool bankB = button_handler->bankSelectState;
+    int index = button_handler->LastIndex;
+    // Use o banco atualmente ativo
+    bool bankB = button_handler->currentBankState;
 
-    UpdateWaveforms(index, bankB);
-    float lfo_val = MixLfoSignals(index, bankB);
+    // Nova seleção → inicia crossfade
+    if(index != currIndex)
+    {
+        prevIndex    = currIndex;
+        currIndex    = index;
+        fadeProgress = 0.0f;
+    }
 
-    float scaled_lfo = lfo_val * DepthValue; // Scale LFO to [-depth,+depth]
-    float modsig     = 0.5f + scaled_lfo;    // Add DC offset
+    fadeProgress = fminf(fadeProgress + fadeRate, 1.0f);
 
-    return std::make_pair(lfo_val, modsig);
+    float out = 0.0f;
+
+    if(currIndex >= 0)
+    {
+        UpdateWaveforms(currIndex, bankB);
+        out += MixLfoSignals(currIndex, bankB) * fadeProgress;
+    }
+
+    if(prevIndex >= 0 && fadeProgress < 1.0f)
+    {
+        UpdateWaveforms(prevIndex, bankB);
+        out += MixLfoSignals(prevIndex, bankB) * (1.0f - fadeProgress);
+    }
+
+    float scaled_lfo = out * DepthValue;
+    float modsig     = 0.5f + scaled_lfo;
+
+    return std::make_pair(out, modsig);
 }
+
 // --- Lfo functions ---
 
 
@@ -461,6 +509,10 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         if(triggered)
         {
             envelope->Retrigger();
+            // Aplicar mudanças pendentes
+            button_handler->currentBankState = button_handler->bankSelectState;
+            button_handler->sweepToTuneActive
+                = button_handler->sweepToTuneState;
         }
 
         // Set and process envelope
@@ -552,7 +604,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
             = VCO_MIN_FREQ * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, tune_with_mod);
 
         // Optional sweep modulation mapped to VCO frequency
-        if(button_handler->sweepToTuneState)
+        if(button_handler->sweepToTuneActive)
         {
             float direction = 2.0f * (sweepVal - 0.5f);
             float threshold = 0.2f;
@@ -629,7 +681,8 @@ int main(void)
             test = !test;
         }
         led_sweep.Write(button_handler->sweepToTuneState);
-        led_bank.Write(test);
+        led_bank.Write(
+            button_handler->bankSelectState); // Mostra o banco pendente
 
 
         //Update the led to reflect the set value

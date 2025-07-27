@@ -8,8 +8,8 @@ using namespace daisysp;
 
 // Constants
 #define VCO_WAVEFORM Oscillator::WAVE_POLYBLEP_SQUARE
-#define VCO_MIN_FREQ 30.0f
-#define VCO_MAX_FREQ 9000.0f
+#define VCO_MIN_FREQ 32.703f // Corresponds to a midi C1
+#define VCO_MAX_FREQ 1046.5f // Corresponds to a midi C6
 
 #define ADSR_ATTACK_TIME 0.3f
 #define ADSR_DECAY_TIME 0.1f
@@ -124,15 +124,22 @@ class Lfo
             osc_harm[i].Init(sample_rate);
             osc_harm[i].SetWaveform(Oscillator::WAVE_SIN);
         }
+        this->prevIndex    = -1;
+        this->currIndex    = -1;
+        this->fadeProgress = 1.0f;                        // 1.0 significa fim
+        this->fadeRate     = 1.0f / (sample_rate * 0.1f); // 100ms fade
     }
 
 
-    float      DepthValue;
-    float      RateValue;
-    Oscillator osc[4];
-    Oscillator osc_harm[4];
-    float      values[5][2]; // oscillator value and modsig value
-
+    float                   DepthValue;
+    float                   RateValue;
+    Oscillator              osc[4];
+    Oscillator              osc_harm[4];
+    float                   values[5][2]; // oscillator value and modsig value
+    int                     prevIndex;
+    int                     currIndex;
+    float                   fadeProgress;
+    float                   fadeRate;
     void                    Init();
     void                    UpdateWaveforms(int index, bool bankB);
     float                   MixLfoSignals(int index, bool bankB);
@@ -230,6 +237,7 @@ class ButtonHandler
         this->LastIndex        = 0;
         this->bankSelectState  = false;
         this->sweepToTuneState = false;
+        this->currentBankState = false; // Banco atualmente ativo
     }
 
     // There are 4 trigger buttons.
@@ -237,6 +245,7 @@ class ButtonHandler
     bool triggersStates[4][3];
     bool bankSelectState;
     bool sweepToTuneState;
+    bool sweepToTuneActive;
     int  LastIndex;
 
     virtual void InitAll();
@@ -247,9 +256,23 @@ class ButtonHandler
 class ButtonHandlerDaisy : public ButtonHandler
 {
   public:
+    ButtonHandlerDaisy()
+    {
+        this->bankSelectState   = false; // já existe
+        this->currentBankState  = false; // já existe
+        this->sweepToTuneState  = false; // já existe (pendente)
+        this->sweepToTuneActive = false; // novo - estado real (ativo)
+    }
+
+
     Switch triggers[4];
     Switch bankSelect;
     Switch sweepToTune;
+
+    bool bankSelectState;
+    bool currentBankState;
+    bool sweepToTuneState;
+    bool sweepToTuneActive;
 
     void InitAll() override;
     void DebounceAll() override;
