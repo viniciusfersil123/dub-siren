@@ -124,15 +124,22 @@ class Lfo
             osc_harm[i].Init(sample_rate);
             osc_harm[i].SetWaveform(Oscillator::WAVE_SIN);
         }
+        this->prevIndex    = -1;
+        this->currIndex    = -1;
+        this->fadeProgress = 1.0f;                        // 1.0 significa fim
+        this->fadeRate     = 1.0f / (sample_rate * 0.1f); // 100ms fade
     }
 
 
-    float      DepthValue;
-    float      RateValue;
-    Oscillator osc[4];
-    Oscillator osc_harm[4];
-    float      values[5][2]; // oscillator value and modsig value
-
+    float                   DepthValue;
+    float                   RateValue;
+    Oscillator              osc[4];
+    Oscillator              osc_harm[4];
+    float                   values[5][2]; // oscillator value and modsig value
+    int                     prevIndex;
+    int                     currIndex;
+    float                   fadeProgress;
+    float                   fadeRate;
     void                    Init();
     void                    UpdateWaveforms(int index, bool bankB);
     float                   MixLfoSignals(int index, bool bankB);

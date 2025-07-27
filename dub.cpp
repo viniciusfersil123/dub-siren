@@ -110,21 +110,52 @@ void ButtonHandlerDaisy::DebounceAll()
 
 void ButtonHandlerDaisy::UpdateAll()
 {
+    static std::vector<int> press_stack; // pilha de botões pressionados
+
     for(int i = 0; i < 4; i++)
     {
+        // Atualiza estados
         if(this->triggers[i].RisingEdge())
         {
             this->triggersStates[i][0] = true;
-            this->LastIndex            = i;
+            this->triggersStates[i][1] = true;
+
+            // Remove se já estiver na pilha e adiciona no topo
+            press_stack.erase(
+                std::remove(press_stack.begin(), press_stack.end(), i),
+                press_stack.end());
+            press_stack.push_back(i);
         }
-        this->triggersStates[i][1] = this->triggers[i].Pressed();
-        this->triggersStates[i][2] = this->triggers[i].FallingEdge();
+        else if(this->triggers[i].FallingEdge())
+        {
+            this->triggersStates[i][2] = true;
+            this->triggersStates[i][1] = false;
+
+            // Remove da pilha
+            press_stack.erase(
+                std::remove(press_stack.begin(), press_stack.end(), i),
+                press_stack.end());
+        }
+        else
+        {
+            this->triggersStates[i][1] = this->triggers[i].Pressed();
+            this->triggersStates[i][0] = false;
+            this->triggersStates[i][2] = false;
+        }
     }
 
+    // Atualiza LastIndex
+    if(!press_stack.empty())
+    {
+        this->LastIndex = press_stack.back();
+    }
+
+    // Update toggle buttons
     if(this->bankSelect.RisingEdge())
     {
         this->bankSelectState = !this->bankSelectState;
     }
+
     if(this->sweepToTune.RisingEdge())
     {
         this->sweepToTuneState = !this->sweepToTuneState; // só o pendente
@@ -332,14 +363,36 @@ std::pair<float, float> Lfo::ProcessAll()
     // Use o banco atualmente ativo
     bool bankB = button_handler->currentBankState;
 
-    UpdateWaveforms(index, bankB);
-    float lfo_val = MixLfoSignals(index, bankB);
+    // Nova seleção → inicia crossfade
+    if(index != currIndex)
+    {
+        prevIndex    = currIndex;
+        currIndex    = index;
+        fadeProgress = 0.0f;
+    }
 
-    float scaled_lfo = lfo_val * DepthValue;
+    fadeProgress = fminf(fadeProgress + fadeRate, 1.0f);
+
+    float out = 0.0f;
+
+    if(currIndex >= 0)
+    {
+        UpdateWaveforms(currIndex, bankB);
+        out += MixLfoSignals(currIndex, bankB) * fadeProgress;
+    }
+
+    if(prevIndex >= 0 && fadeProgress < 1.0f)
+    {
+        UpdateWaveforms(prevIndex, bankB);
+        out += MixLfoSignals(prevIndex, bankB) * (1.0f - fadeProgress);
+    }
+
+    float scaled_lfo = out * DepthValue;
     float modsig     = 0.5f + scaled_lfo;
 
-    return std::make_pair(lfo_val, modsig);
+    return std::make_pair(out, modsig);
 }
+
 // --- Lfo functions ---
 
 
