@@ -514,10 +514,10 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
     for(size_t i = 0; i < size; i++)
     {
-        bool  pressed   = triggers->Pressed();
+        bool pressed = triggers->Pressed();
 
         // Use frozen sweep value after release
-        float sweepVal = pressed ? hw.adc.GetFloat(SweepKnob) : sweep->ReleaseValue;
+        float sweepVal = sweep->ReleaseValue;
 
 
         // Reset envelope and LFO on trigger
