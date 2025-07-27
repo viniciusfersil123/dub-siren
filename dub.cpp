@@ -30,7 +30,8 @@ KnobHandlerDaisy*   knob_handler   = new KnobHandlerDaisy();
 ButtonHandlerDaisy* button_handler = new ButtonHandlerDaisy();
 int                 SAMPLE_RATE = 0, BLOCK_SIZE = 0;
 float               output, adsr_vcf, adsr_output, vco_output, vco_modulation;
-std::pair<float, float> lfo_output = std::make_pair(0, 0);
+volatile bool       shouldApplyToggles = false;
+std::pair<float, float> lfo_output     = std::make_pair(0, 0);
 
 // Dub Siren components
 DecayEnvelope* envelope;
@@ -43,7 +44,8 @@ OutAmp*        out_amp;
 GPIO           led_sweep;
 GPIO           led_bank;
 Led            led_lfo;
-bool           test = false; // Used to test the Sweep LED
+
+
 //Initialize led1. We'll plug it into pin 28.
 //false here indicates the value is uninverted
 
@@ -372,6 +374,8 @@ std::pair<float, float> Lfo::ProcessAll()
     }
 
     fadeProgress = fminf(fadeProgress + fadeRate, 1.0f);
+    /*     float scaled_lfo = lfo_val * DepthValue;
+    float modsig     = 0.5f + scaled_lfo; */
 
     float out = 0.0f;
 
@@ -492,21 +496,36 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                    AudioHandle::OutputBuffer out,
                    size_t                    size)
 {
+    if(shouldApplyToggles)
+    {
+        envelope->Retrigger();
+        lfo->ResetPhaseAll();
+
+        button_handler->currentBankState  = button_handler->bankSelectState;
+        button_handler->sweepToTuneActive = button_handler->sweepToTuneState;
+
+        triggers->ClearTriggered();
+        shouldApplyToggles = false;
+    }
+
     for(size_t i = 0; i < size; i++)
     {
-        bool  triggered = triggers->Triggered();
-        bool  pressed   = triggers->Pressed();
-        float sweepVal  = hw.adc.GetFloat(SweepKnob);
+        bool  pressed  = triggers->Pressed();
+        float sweepVal = hw.adc.GetFloat(SweepKnob);
 
 
         // Reset envelope and LFO on trigger
-        if(triggered)
+        if(shouldApplyToggles)
         {
             envelope->Retrigger();
+            lfo->ResetPhaseAll();
+
             // Aplicar mudanças pendentes
             button_handler->currentBankState = button_handler->bankSelectState;
             button_handler->sweepToTuneActive
                 = button_handler->sweepToTuneState;
+            triggers->ClearTriggered();
+            shouldApplyToggles = false;
         }
 
         // Set and process envelope
@@ -571,13 +590,6 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         lfo->SetFreqAll(lfo->RateValue);
         float depth_exp = powf(10.f, (lfo->DepthValue - 1.0f));
         lfo->SetAmpAll(depth_exp);
-
-        if(triggered)
-        {
-            lfo->ResetPhaseAll();
-            triggers->ClearTriggered();
-        }
-
         lfo_output = lfo->ProcessAll();
 
         // --- VCO frequency and modulation ---
@@ -666,27 +678,16 @@ int main(void)
         knob_handler->UpdateAll();
         button_handler->DebounceAll();
         button_handler->UpdateAll();
-        if(button_handler->sweepToTune.RisingEdge())
-        {
-            sweep->IsSweepToTuneActive = !sweep->IsSweepToTuneActive;
-        }
-        if(button_handler->bankSelect.RisingEdge())
-        {
-            test = !test;
-        }
         led_sweep.Write(button_handler->sweepToTuneState);
-        led_bank.Write(
-            button_handler->bankSelectState); // Mostra o banco pendente
+        led_bank.Write(button_handler->bankSelectState);
 
-
-        //Update the led to reflect the set value
+        if(triggers->Triggered())
+        {
+            shouldApplyToggles = true;
+        }
 
         if(DEBUG)
         {
-            // PrintKnobValues();
-            // PrintButtonStates();
-            // PrintOutputs();
-            // hw.PrintLine("Active Trigger: %d", triggers->LastIndex);
             System::Delay(10);
         }
     }
