@@ -230,6 +230,7 @@ class ButtonHandler
         this->LastIndex        = 0;
         this->bankSelectState  = false;
         this->sweepToTuneState = false;
+        this->currentBankState = false; // Banco atualmente ativo
     }
 
     // There are 4 trigger buttons.
