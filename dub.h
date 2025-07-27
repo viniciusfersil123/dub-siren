@@ -244,6 +244,7 @@ class ButtonHandler
     // Each one has 3 states (true of false): Triggered, Pressed, Released.
     bool triggersStates[4][3];
     bool bankSelectState;
+    bool currentBankState; // Banco atualmente ativo
     bool sweepToTuneState;
     bool sweepToTuneActive;
     int  LastIndex;
