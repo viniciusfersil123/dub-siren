@@ -158,10 +158,9 @@ void ButtonHandlerDaisy::UpdateAll()
 
     if(this->sweepToTune.RisingEdge())
     {
-        this->sweepToTuneState = !this->sweepToTuneState;
+        this->sweepToTuneState = !this->sweepToTuneState; // só o pendente
     }
 }
-
 
 // ButtonHandler functions
 
@@ -360,8 +359,9 @@ void Lfo::ResetPhaseAll()
 
 std::pair<float, float> Lfo::ProcessAll()
 {
-    int  index = button_handler->LastIndex;
-    bool bankB = button_handler->bankSelectState;
+    int index = button_handler->LastIndex;
+    // Use o banco atualmente ativo
+    bool bankB = button_handler->currentBankState;
 
     // Nova seleção → inicia crossfade
     if(index != currIndex)
@@ -503,6 +503,10 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         if(triggered)
         {
             envelope->Retrigger();
+            // Aplicar mudanças pendentes
+            button_handler->currentBankState = button_handler->bankSelectState;
+            button_handler->sweepToTuneActive
+                = button_handler->sweepToTuneState;
         }
 
         // Set and process envelope
@@ -594,7 +598,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
             = VCO_MIN_FREQ * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, tune_with_mod);
 
         // Optional sweep modulation mapped to VCO frequency
-        if(button_handler->sweepToTuneState)
+        if(button_handler->sweepToTuneActive)
         {
             float direction = 2.0f * (sweepVal - 0.5f);
             float threshold = 0.2f;
@@ -671,7 +675,8 @@ int main(void)
             test = !test;
         }
         led_sweep.Write(button_handler->sweepToTuneState);
-        led_bank.Write(test);
+        led_bank.Write(
+            button_handler->bankSelectState); // Mostra o banco pendente
 
 
         //Update the led to reflect the set value

@@ -237,6 +237,7 @@ class ButtonHandler
         this->LastIndex        = 0;
         this->bankSelectState  = false;
         this->sweepToTuneState = false;
+        this->currentBankState = false; // Banco atualmente ativo
     }
 
     // There are 4 trigger buttons.
@@ -244,6 +245,7 @@ class ButtonHandler
     bool triggersStates[4][3];
     bool bankSelectState;
     bool sweepToTuneState;
+    bool sweepToTuneActive;
     int  LastIndex;
 
     virtual void InitAll();
@@ -254,9 +256,23 @@ class ButtonHandler
 class ButtonHandlerDaisy : public ButtonHandler
 {
   public:
+    ButtonHandlerDaisy()
+    {
+        this->bankSelectState   = false; // já existe
+        this->currentBankState  = false; // já existe
+        this->sweepToTuneState  = false; // já existe (pendente)
+        this->sweepToTuneActive = false; // novo - estado real (ativo)
+    }
+
+
     Switch triggers[4];
     Switch bankSelect;
     Switch sweepToTune;
+
+    bool bankSelectState;
+    bool currentBankState;
+    bool sweepToTuneState;
+    bool sweepToTuneActive;
 
     void InitAll() override;
     void DebounceAll() override;
