@@ -75,7 +75,11 @@ void KnobHandlerDaisy::UpdateAll()
     // Decay Envelope knobs
     envelope->ReleaseValue = hw.adc.GetFloat(DecayKnob);
 
-    sweep->ReleaseValue = hw.adc.GetFloat(SweepKnob);
+    // Only update sweep value while a trigger is pressed
+    if(triggers->Pressed())
+    {
+        sweep->ReleaseValue = hw.adc.GetFloat(SweepKnob);
+    }
 
     // LFO depth and rate knobs
     lfo->DepthValue = hw.adc.GetFloat(DepthKnob);
@@ -510,8 +514,10 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
     for(size_t i = 0; i < size; i++)
     {
-        bool  pressed  = triggers->Pressed();
-        float sweepVal = hw.adc.GetFloat(SweepKnob);
+        bool pressed = triggers->Pressed();
+
+        // Use frozen sweep value after release
+        float sweepVal = sweep->ReleaseValue;
 
 
         // Reset envelope and LFO on trigger
