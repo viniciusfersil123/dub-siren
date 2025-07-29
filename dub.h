@@ -21,7 +21,7 @@ using namespace daisysp;
 #define LFO_1_WAVEFORM Oscillator::WAVE_SQUARE
 #define LFO_2_WAVEFORM Oscillator::WAVE_SAW
 #define LFO_3_WAVEFORM Oscillator::WAVE_RAMP
-#define LFO_MIN_FREQ 1.0f
+#define LFO_MIN_FREQ 0.0f
 #define LFO_MAX_FREQ 20.0f
 
 #define VCF_FILTER OnePole::FILTER_MODE_LOW_PASS
