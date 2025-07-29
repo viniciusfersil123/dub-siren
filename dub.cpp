@@ -197,12 +197,6 @@ float DecayEnvelope::Process(bool gate)
     return this->EnvelopeValue;
 }
 
-void DecayEnvelope::Retrigger()
-{
-    envelope.Retrigger(true);
-}
-// DecayEnvelope functions
-
 
 // Triggers functions
 bool Triggers::Triggered()
@@ -270,13 +264,6 @@ float Sweep::Process(bool gate)
     this->EnvelopeValue = this->envelope.Process(gate);
     return this->EnvelopeValue;
 }
-
-void Sweep::Retrigger()
-{
-    envelope.Retrigger(true);
-}
-// Sweep functions
-
 
 // --- Lfo functions ---
 void Lfo::UpdateWaveforms(int index, bool bankB)
@@ -502,7 +489,6 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 {
     if(shouldApplyToggles)
     {
-        envelope->Retrigger();
         lfo->ResetPhaseAll();
 
         button_handler->currentBankState  = button_handler->bankSelectState;
@@ -523,7 +509,6 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         // Reset envelope and LFO on trigger
         if(shouldApplyToggles)
         {
-            envelope->Retrigger();
             lfo->ResetPhaseAll();
 
             // Aplicar mudanças pendentes
