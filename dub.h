@@ -61,7 +61,6 @@ class DecayEnvelope
 
     void  SetReleaseTime(float time);
     float Process(bool gate);
-    void  Retrigger();
 };
 // DecayEnvelope
 
@@ -91,7 +90,6 @@ class Sweep
 
     void  SetReleaseTime(float time);
     float Process(bool gate);
-    void  Retrigger();
 };
 // Sweep
 
