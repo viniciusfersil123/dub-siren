@@ -579,7 +579,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
         // --- LFO processing ---
         lfo->SetFreqAll(lfo->RateValue);
-        float depth_exp = powf(10.f, (lfo->DepthValue - 1.0f));
+        float depth_exp = pow10f(lfo->DepthValue - 1.0f);
         lfo->SetAmpAll(depth_exp);
         lfo_output = lfo->ProcessAll();
 
