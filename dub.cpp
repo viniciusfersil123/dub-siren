@@ -527,17 +527,14 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         adsr_output = envelope->Process(pressed);
 
         // --- Filter frequency (VCF) logic ---
-        // static float cutoff_exponent = 0.0f;
         float cutoff_exponent = sweepVal;
 
         if(pressed)
         {
             // When pressed, control VCF freq with sweep knob using exponential curve
-            // cutoff_exponent = powf(sweepVal, 0.5f);
             sweep->CutoffFreq
                 = VCF_MIN_FREQ
                   * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, cutoff_exponent);
-            vcf->SetFreq(sweep->CutoffFreq);
         }
         else
         {
@@ -567,11 +564,11 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                   + (end_exp - base_exp) * (1.0f - adsr_output) * intensity;
 
             // Final exponential frequency
-            float cutoff
+            sweep->CutoffFreq
                 = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, sweep_exp);
-
-            vcf->SetFreq(cutoff);
         }
+
+        vcf->SetFreq(sweep->CutoffFreq);
 
 
         // Initial output from envelope
