@@ -82,7 +82,6 @@ class Sweep
 
     float SweepValue; // Knob value from 0.0f to 1.0f
     bool  IsSweepToTuneActive;
-    float CutoffFreq;
 
     Adsr  envelope;
     float ReleaseValue;  // Knob value from 0.0f to 1.0f
@@ -179,10 +178,12 @@ class Vcf
         this->filter.Init(sample_rate);
         this->filter.SetDrive(100.0f);
         this->filter.SetRes(0.95f);
+        this->CutoffFreq = VCF_MIN_FREQ;
     }
 
     Svf filter;
     //OnePole filter;
+    float CutoffFreq;
 
     void  SetFreq(float freq);
     float Process(float in);

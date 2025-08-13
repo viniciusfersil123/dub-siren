@@ -532,7 +532,7 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         if(pressed)
         {
             // When pressed, control VCF freq with sweep knob using exponential curve
-            sweep->CutoffFreq
+            vcf->CutoffFreq
                 = VCF_MIN_FREQ
                   * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, cutoff_exponent);
         }
@@ -564,11 +564,11 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                   + (end_exp - base_exp) * (1.0f - adsr_output) * intensity;
 
             // Final exponential frequency
-            sweep->CutoffFreq
+            vcf->CutoffFreq
                 = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, sweep_exp);
         }
 
-        vcf->SetFreq(sweep->CutoffFreq);
+        vcf->SetFreq(vcf->CutoffFreq);
 
 
         // Initial output from envelope
