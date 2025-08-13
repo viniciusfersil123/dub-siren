@@ -65,33 +65,6 @@ class DecayEnvelope
 // DecayEnvelope
 
 
-// Sweep
-class Sweep
-{
-  public:
-    Sweep(int sample_rate, int block_size)
-    {
-        this->SweepValue          = 0.0f;
-        this->IsSweepToTuneActive = false;
-        this->envelope.Init(sample_rate, block_size);
-        this->envelope.SetTime(ADSR_SEG_ATTACK, ADSR_ATTACK_TIME);
-        this->envelope.SetTime(ADSR_SEG_DECAY, ADSR_DECAY_TIME);
-        this->envelope.SetTime(ADSR_SEG_RELEASE, ADSR_RELEASE_TIME);
-        this->envelope.SetSustainLevel(ADSR_SUSTAIN_LEVEL);
-    }
-
-    float SweepValue; // Knob value from 0.0f to 1.0f
-    bool  IsSweepToTuneActive;
-
-    Adsr  envelope;
-    float ReleaseValue;  // Knob value from 0.0f to 1.0f
-    float EnvelopeValue; // Current envelope value from 0.0f to 1.0f
-
-    void  SetReleaseTime(float time);
-    float Process(bool gate);
-};
-// Sweep
-
 
 // Triggers
 class Triggers
@@ -184,11 +157,44 @@ class Vcf
     Svf filter;
     //OnePole filter;
     float CutoffFreq;
+    float CutoffExponent;
 
     void  SetFreq(float freq);
+    void  UpdateCutoffPressed(float sweepValue);
     float Process(float in);
 };
 // Vcf
+
+
+
+// Sweep
+class Sweep
+{
+  public:
+    Sweep(int sample_rate, int block_size)
+    {
+        this->SweepValue          = 0.0f;
+        this->IsSweepToTuneActive = false;
+        this->envelope.Init(sample_rate, block_size);
+        this->envelope.SetTime(ADSR_SEG_ATTACK, ADSR_ATTACK_TIME);
+        this->envelope.SetTime(ADSR_SEG_DECAY, ADSR_DECAY_TIME);
+        this->envelope.SetTime(ADSR_SEG_RELEASE, ADSR_RELEASE_TIME);
+        this->envelope.SetSustainLevel(ADSR_SUSTAIN_LEVEL);
+    }
+
+    float SweepValue; // Knob value from 0.0f to 1.0f
+    bool  IsSweepToTuneActive;
+
+    Adsr  envelope;
+    float ReleaseValue;  // Knob value from 0.0f to 1.0f
+    float EnvelopeValue; // Current envelope value from 0.0f to 1.0f
+
+    void  SetReleaseTime(float time);
+    float Process(bool gate);
+    float UpdateCutoffFreq(float sweepValue, Vcf* vcf, float adsrOutput);
+};
+// Sweep
+
 
 
 // OutAmp
