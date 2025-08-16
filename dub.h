@@ -65,7 +65,6 @@ class DecayEnvelope
 // DecayEnvelope
 
 
-
 // Triggers
 class Triggers
 {
@@ -166,7 +165,6 @@ class Vcf
 // Vcf
 
 
-
 // Sweep
 class Sweep
 {
@@ -194,7 +192,6 @@ class Sweep
     float UpdateCutoffFreq(float sweepValue, Vcf* vcf, float adsrOutput);
 };
 // Sweep
-
 
 
 // OutAmp

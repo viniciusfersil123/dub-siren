@@ -446,8 +446,21 @@ void Vcf::SetFreq(float freq)
 
 void Vcf::UpdateCutoffPressed(float sweepValue)
 {
+    // Map the sweep value to a piecewise linear interpolation
+    // 0%  to 50%  -> 0%  to 75%
+    // 50% to 100% -> 75% to 100%
+    if(sweepValue <= 0.5f)
+    {
+        this->CutoffExponent = (sweepValue / 0.5f) * 0.75f;
+    }
+    else
+    {
+        this->CutoffExponent = 0.75f + ((sweepValue - 0.5f) / 0.5f) * 0.25f;
+    }
+
     this->CutoffFreq
-        = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, sweepValue);
+        = VCF_MIN_FREQ
+          * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, this->CutoffExponent);
     this->SetFreq(this->CutoffFreq);
 }
 
@@ -572,7 +585,8 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         }
         else
         {
-            vcf->CutoffFreq = sweep->UpdateCutoffFreq(sweepVal, vcf, adsr_output);
+            vcf->CutoffFreq
+                = sweep->UpdateCutoffFreq(sweepVal, vcf, adsr_output);
             vcf->SetFreq(vcf->CutoffFreq);
         }
 
