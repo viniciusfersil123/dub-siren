@@ -265,6 +265,38 @@ float Sweep::Process(bool gate)
     return this->EnvelopeValue;
 }
 
+float Sweep::UpdateCutoffFreq(float sweepValue, Vcf* vcf, float adsrOutput)
+{
+    float base_exp = vcf->CutoffExponent;
+
+    // Map sweepVal from [0,1] to [-1,1]
+    float direction = 2.0f * (sweepValue - 0.5f);
+
+    // Increase dead zone using a threshold
+    // Must be between [0,1]
+    float threshold = 0.2f;
+
+    // Calculate sweep intensity:
+    // zero in center, max at extremes, smoothed
+    float abs_dir = fabsf(direction);
+    float intensity
+        = (abs_dir > threshold)
+              ? powf((abs_dir - threshold) / (1.0f - threshold), 2.0f)
+              : 0.0f;
+
+    // Compute target exponent:
+    // direction < 0 → freq goes up   → end_exp = 1
+    // direction > 0 → freq goes down → end_exp = 0
+    float end_exp = 0.5f - 0.5f * direction;
+
+    // Blend start and end exponents modulated by ADSR and sweep intensity
+    float sweep_exp
+        = base_exp + (end_exp - base_exp) * (1.0f - adsrOutput) * intensity;
+
+    // Final exponential frequency
+    return VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, sweep_exp);
+}
+
 // --- Lfo functions ---
 void Lfo::UpdateWaveforms(int index, bool bankB)
 {
@@ -412,6 +444,26 @@ void Vcf::SetFreq(float freq)
     this->filter.SetFreq(limited_freq);
 }
 
+void Vcf::UpdateCutoffPressed(float sweepValue)
+{
+    // Map the sweep value to a piecewise linear interpolation
+    // 0%  to 50%  -> 0%  to 75%
+    // 50% to 100% -> 75% to 100%
+    if(sweepValue <= 0.5f)
+    {
+        this->CutoffExponent = (sweepValue / 0.5f) * 0.75f;
+    }
+    else
+    {
+        this->CutoffExponent = 0.75f + ((sweepValue - 0.5f) / 0.5f) * 0.25f;
+    }
+
+    this->CutoffFreq
+        = VCF_MIN_FREQ
+          * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, this->CutoffExponent);
+    this->SetFreq(this->CutoffFreq);
+}
+
 float Vcf::Process(float in)
 {
     this->filter.Process(in);
@@ -527,50 +579,15 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         adsr_output = envelope->Process(pressed);
 
         // --- Filter frequency (VCF) logic ---
-        // static float cutoff_exponent = 0.0f;
-        float cutoff_exponent = sweepVal;
-
         if(pressed)
         {
-            // When pressed, control VCF freq with sweep knob using exponential curve
-            // cutoff_exponent = powf(sweepVal, 0.5f);
-            sweep->CutoffFreq
-                = VCF_MIN_FREQ
-                  * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, cutoff_exponent);
-            vcf->SetFreq(sweep->CutoffFreq);
+            vcf->UpdateCutoffPressed(sweepVal);
         }
         else
         {
-            float base_exp = cutoff_exponent;
-
-            // Map sweepVal ∈ [0,1] to [-1,1]
-            float direction = 2.0f * (sweepVal - 0.5f);
-
-            // Increase dead zone using a threshold (e.g. 0.2)
-            float threshold = 0.2f;
-
-            // Calculate sweep intensity: zero in center, max at extremes, smoothed
-            float abs_dir = fabsf(direction);
-            float intensity
-                = (abs_dir > threshold)
-                      ? powf((abs_dir - threshold) / (1.0f - threshold), 2.0f)
-                      : 0.0f;
-
-            // Compute target exponent:
-            // direction < 0 → freq goes up → end_exp = 1
-            // direction > 0 → freq goes down → end_exp = 0
-            float end_exp = 0.5f - 0.5f * direction;
-
-            // Blend start and end exponents modulated by ADSR and sweep intensity
-            float sweep_exp
-                = base_exp
-                  + (end_exp - base_exp) * (1.0f - adsr_output) * intensity;
-
-            // Final exponential frequency
-            float cutoff
-                = VCF_MIN_FREQ * powf(VCF_MAX_FREQ / VCF_MIN_FREQ, sweep_exp);
-
-            vcf->SetFreq(cutoff);
+            vcf->CutoffFreq
+                = sweep->UpdateCutoffFreq(sweepVal, vcf, adsr_output);
+            vcf->SetFreq(vcf->CutoffFreq);
         }
 
 
