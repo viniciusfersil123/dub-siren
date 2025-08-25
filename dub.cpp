@@ -73,16 +73,16 @@ void KnobHandlerDaisy::UpdateAll()
     vco->TuneValue = fclamp(hw.adc.GetFloat(TuneKnob), 0.f, 1.f);
 
     // Decay Envelope knobs
-    envelope->ReleaseValue = hw.adc.GetFloat(DecayKnob);
+    envelope->ReleaseValue = fclamp(hw.adc.GetFloat(DecayKnob), 0.f, 1.f);
 
     // Only update sweep value while a trigger is pressed
     if(triggers->Pressed())
     {
-        sweep->ReleaseValue = hw.adc.GetFloat(SweepKnob);
+        sweep->ReleaseValue = fclamp(hw.adc.GetFloat(SweepKnob), 0.f, 1.f);
     }
 
     // LFO depth and rate knobs
-    lfo->DepthValue = hw.adc.GetFloat(DepthKnob);
+    lfo->DepthValue = fclamp(hw.adc.GetFloat(DepthKnob), 0.f, 1.f);
     lfo->RateValue  = fmap(
         hw.adc.GetFloat(RateKnob), LFO_MIN_FREQ, LFO_MAX_FREQ, Mapping::EXP);
 
