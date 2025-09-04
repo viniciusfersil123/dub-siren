@@ -6,21 +6,21 @@
 
 KNOB   | PIN NUMBER
 -------------------
-Volume | 21
-Decay  | 22
-Depth  | 23
-Tune   | 24
-Sweep  | 25
-Rate   | 26
+Volume | 22
+Decay  | 23
+Depth  | 24
+Tune   | 25
+Sweep  | 26
+Rate   | 27
 
 BUTTON      | PIN NUMBER
 ------------------------
-Trigger 1   | 27
-Trigger 2   | 28
-Trigger 3   | 29
-Trigger 4   | 30
-BankSelect  | 31
-SweepToTune | 32
+Trigger 1   | 28
+Trigger 2   | 29
+Trigger 3   | 30
+Trigger 4   | 31
+BankSelect  | 32
+SweepToTune | 33
 */
 using namespace daisy;
 using namespace daisysp;
