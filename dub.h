@@ -169,7 +169,7 @@ class Vcf
 class Sweep
 {
   public:
-    Sweep(int sample_rate, int block_size)
+    Sweep(int sample_rate, int block_size) : threshold(0.1f)
     {
         this->SweepValue          = 0.0f;
         this->IsSweepToTuneActive = false;
@@ -180,8 +180,9 @@ class Sweep
         this->envelope.SetSustainLevel(ADSR_SUSTAIN_LEVEL);
     }
 
-    float SweepValue; // Knob value from 0.0f to 1.0f
-    bool  IsSweepToTuneActive;
+    float       SweepValue; // Knob value from 0.0f to 1.0f
+    bool        IsSweepToTuneActive;
+    const float threshold; // Sweep deadzone threshold (0-1)
 
     Adsr  envelope;
     float ReleaseValue;  // Knob value from 0.0f to 1.0f

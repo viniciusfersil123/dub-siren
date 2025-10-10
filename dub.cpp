@@ -272,16 +272,13 @@ float Sweep::UpdateCutoffFreq(float sweepValue, Vcf* vcf, float adsrOutput)
     // Map sweepVal from [0,1] to [-1,1]
     float direction = 2.0f * (sweepValue - 0.5f);
 
-    // Increase dead zone using a threshold
-    // Must be between [0,1]
-    float threshold = 0.2f;
-
-    // Calculate sweep intensity:
+    // Calculate sweep intensity with deadzone:
     // zero in center, max at extremes, smoothed
     float abs_dir = fabsf(direction);
     float intensity
-        = (abs_dir > threshold)
-              ? powf((abs_dir - threshold) / (1.0f - threshold), 2.0f)
+        = (abs_dir > this->threshold)
+              ? powf((abs_dir - this->threshold) / (1.0f - this->threshold),
+                     2.0f)
               : 0.0f;
 
     // Compute target exponent:
@@ -621,12 +618,12 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         if(button_handler->sweepToTuneActive)
         {
             float direction = 2.0f * (sweepVal - 0.5f);
-            float threshold = 0.2f;
             float abs_dir   = fabsf(direction);
-            float intensity
-                = (abs_dir > threshold)
-                      ? powf((abs_dir - threshold) / (1.0f - threshold), 2.0f)
-                      : 0.0f;
+            float intensity = (abs_dir > sweep->threshold)
+                                  ? powf((abs_dir - sweep->threshold)
+                                             / (1.0f - sweep->threshold),
+                                         2.0f)
+                                  : 0.0f;
 
             float end_exp   = 0.5f - 0.5f * direction;
             float sweep_exp = tune_with_mod
