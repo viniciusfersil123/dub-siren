@@ -81,7 +81,7 @@ void KnobHandlerDaisy::UpdateAll()
         sweep->ReleaseValue = fclamp(hw.adc.GetFloat(SweepKnob), 0.f, 1.f);
     }
 
-    // LFO depth and rate knobs
+    // LFO depth (vibrato intensity 0-100%) and rate knobs
     lfo->DepthValue = fclamp(hw.adc.GetFloat(DepthKnob), 0.f, 1.f);
     lfo->RateValue  = fmap(
         hw.adc.GetFloat(RateKnob), LFO_MIN_FREQ, LFO_MAX_FREQ, Mapping::EXP);
@@ -397,8 +397,6 @@ std::pair<float, float> Lfo::ProcessAll()
     }
 
     fadeProgress = fminf(fadeProgress + fadeRate, 1.0f);
-    /*     float scaled_lfo = lfo_val * DepthValue;
-    float modsig     = 0.5f + scaled_lfo; */
 
     float out = 0.0f;
 
@@ -414,8 +412,9 @@ std::pair<float, float> Lfo::ProcessAll()
         out += MixLfoSignals(prevIndex, bankB) * (1.0f - fadeProgress);
     }
 
-    float scaled_lfo = out * DepthValue;
-    float modsig     = 0.5f + scaled_lfo;
+    // Convert LFO output to modulation signal [0,1]
+    // No longer scaling by DepthValue here - FM ratio handles this now
+    float modsig = 0.5f + out;
 
     return std::make_pair(out, modsig);
 }
@@ -432,6 +431,35 @@ void Vco::SetFreq(float freq)
 float Vco::Process()
 {
     return this->osc.Process();
+}
+
+float Vco::CalculateFMFreq(float carrier_freq, float lfo_bipolar, float depth)
+{
+    // FM synthesis: M = C / R (Modulator freq = Carrier freq / Ratio)
+    float modulator_freq = carrier_freq / this->fm_ratio;
+
+    // Calculate deviation: D = I * M, where I is controlled by depth
+    float fm_index  = LFO_FM_INDEX * depth;
+    float deviation = fm_index * modulator_freq;
+
+    // Apply LFO modulation with FM deviation scaling
+    float frequency_shift = lfo_bipolar * deviation;
+
+    // Calculate modulated frequency
+    float freq = carrier_freq + frequency_shift;
+
+    // --- Frequency folding ---
+    // Fold negative frequencies to positive (spectral mirroring at 0 Hz)
+    freq = fabsf(freq);
+
+    // Fold frequencies above Nyquist back down (spectral mirroring at Nyquist limit)
+    if(freq > this->nyquist_limit)
+    {
+        freq = 2.0f * this->nyquist_limit - freq;
+        freq = fabsf(freq); // Handle double-folding for extreme cases
+    }
+
+    return freq;
 }
 // Vco functions
 
@@ -596,26 +624,21 @@ void AudioCallback(AudioHandle::InputBuffer  in,
 
         // --- LFO processing ---
         lfo->SetFreqAll(lfo->RateValue);
-        float depth_exp = pow10f(lfo->DepthValue - 1.0f);
-        lfo->SetAmpAll(depth_exp);
+        lfo->SetAmpAll(
+            1.0f); // LFO at full amplitude, FM ratio will scale deviation
         lfo_output = lfo->ProcessAll();
 
-        // --- VCO frequency and modulation ---
-        vco_modulation = lfo_output.second;
+        // --- VCO frequency and modulation with FM-inspired deviation ---
+        // Calculate base carrier frequency from tune knob
+        float carrier_freq
+            = VCO_MIN_FREQ * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, vco->TuneValue);
 
-        // Calculate VCO frequency with proper depth scaling
-        // Convert [0,1] range to [-1,1] and scale by depth, then add to base tune
-        float modulation_amount
-            = (vco_modulation - 0.5f) * 2.0f * lfo->DepthValue;
-        float tune_with_mod
-            = vco->TuneValue
-              + modulation_amount * 0.5f; // Scale modulation range
-        tune_with_mod
-            = fclamp(tune_with_mod, 0.0f, 1.0f); // Keep within valid range
+        // Convert LFO output from [0,1] to [-1,+1]
+        float lfo_bipolar = (lfo_output.second - 0.5f) * 2.0f;
 
-        // VCO frequency is exponentially mapped
+        // FM synthesis: depth controls intensity, ratio stored in VCO
         float vco_freq
-            = VCO_MIN_FREQ * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, tune_with_mod);
+            = vco->CalculateFMFreq(carrier_freq, lfo_bipolar, lfo->DepthValue);
 
         // Optional sweep modulation mapped to VCO frequency
         if(button_handler->sweepToTuneActive)
@@ -629,12 +652,17 @@ void AudioCallback(AudioHandle::InputBuffer  in,
                       : 0.0f;
 
             float end_exp   = 0.5f - 0.5f * direction;
-            float sweep_exp = tune_with_mod
-                              + (end_exp - tune_with_mod) * (1.0f - adsr_output)
-                                    * intensity;
+            float sweep_exp = vco->TuneValue
+                              + (end_exp - vco->TuneValue)
+                                    * (1.0f - adsr_output) * intensity;
 
-            vco_freq
+            // Recalculate carrier with sweep, then apply FM modulation
+            carrier_freq
                 = VCO_MIN_FREQ * powf(VCO_MAX_FREQ / VCO_MIN_FREQ, sweep_exp);
+
+            // Recalculate with swept carrier frequency
+            vco_freq = vco->CalculateFMFreq(
+                carrier_freq, lfo_bipolar, lfo->DepthValue);
         }
 
 
