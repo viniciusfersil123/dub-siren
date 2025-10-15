@@ -265,6 +265,60 @@ float Sweep::Process(bool gate)
     return this->EnvelopeValue;
 }
 
+float Sweep::CalculateFilterIntensity(float sweepValue)
+{
+    // Map sweepVal from [0,1] to [-1,1]
+    float direction = 2.0f * (sweepValue - 0.5f);
+    float abs_dir   = fabsf(direction);
+
+    // Dead zone threshold
+    float threshold = 0.2f;
+    float intensity = 0.0f;
+
+    // Assymetrical curve
+    // Faster sweep for values below threshold - attack effect
+    // Slower sweep for values above threshold - decay effect
+    if(direction > threshold)
+    {
+        intensity
+            = 0.5f * powf((abs_dir - threshold) / (1.0f - threshold), 2.0f);
+    }
+    else if(direction < -threshold)
+    {
+        intensity
+            = 2.f * powf((abs_dir - threshold) / (1.0f - threshold), 0.5f);
+        // intensity = 3.f;
+    }
+    // If sweep is in the threshold interval, maintain 0.
+
+    return intensity;
+}
+
+float Sweep::CalculateVcoIntensity(float sweepValue)
+{
+    // Map sweepVal from [0,1] to [-1,1]
+    float direction = 2.0f * (sweepValue - 0.5f);
+    float abs_dir   = fabsf(direction);
+
+    float threshold = 0.2f;
+    float intensity = 0.f;
+
+    // Calculate sweep intensity for VCO:
+    if(direction > threshold)
+    {
+        intensity
+            = 0.75f * powf((abs_dir - threshold) / (1.0f - threshold), 2.0f);
+    }
+    else if(direction < -threshold)
+    {
+        intensity
+            = 0.75f * powf((abs_dir - threshold) / (1.0f - threshold), 2.0f);
+    }
+    // If sweep is in the threshold interval, maintain 0.
+
+    return intensity;
+}
+
 float Sweep::UpdateCutoffFreq(float sweepValue, Vcf* vcf, float adsrOutput)
 {
     float base_exp = vcf->CutoffExponent;
@@ -272,17 +326,8 @@ float Sweep::UpdateCutoffFreq(float sweepValue, Vcf* vcf, float adsrOutput)
     // Map sweepVal from [0,1] to [-1,1]
     float direction = 2.0f * (sweepValue - 0.5f);
 
-    // Increase dead zone using a threshold
-    // Must be between [0,1]
-    float threshold = 0.2f;
-
-    // Calculate sweep intensity:
-    // zero in center, max at extremes, smoothed
-    float abs_dir = fabsf(direction);
-    float intensity
-        = (abs_dir > threshold)
-              ? powf((abs_dir - threshold) / (1.0f - threshold), 2.0f)
-              : 0.0f;
+    // Get filter intensity using the dedicated method
+    float intensity = this->CalculateFilterIntensity(sweepValue);
 
     // Compute target exponent:
     // direction < 0 → freq goes up   → end_exp = 1
@@ -621,12 +666,9 @@ void AudioCallback(AudioHandle::InputBuffer  in,
         if(button_handler->sweepToTuneActive)
         {
             float direction = 2.0f * (sweepVal - 0.5f);
-            float threshold = 0.2f;
-            float abs_dir   = fabsf(direction);
-            float intensity
-                = (abs_dir > threshold)
-                      ? powf((abs_dir - threshold) / (1.0f - threshold), 2.0f)
-                      : 0.0f;
+
+            // Get VCO intensity using the dedicated method
+            float intensity = sweep->CalculateVcoIntensity(sweepVal);
 
             float end_exp   = 0.5f - 0.5f * direction;
             float sweep_exp = tune_with_mod
