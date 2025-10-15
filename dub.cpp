@@ -78,7 +78,8 @@ void KnobHandlerDaisy::UpdateAll()
     // Only update sweep value while a trigger is pressed
     if(triggers->Pressed())
     {
-        sweep->ReleaseValue = fclamp(hw.adc.GetFloat(SweepKnob), 0.f, 1.f);
+        sweep->ReleaseValue
+            = fmap(hw.adc.GetFloat(SweepKnob), 0.1f, 1.f, Mapping::EXP);
     }
 
     // LFO depth and rate knobs
