@@ -79,7 +79,7 @@ void KnobHandlerDaisy::UpdateAll()
     if(triggers->Pressed())
     {
         sweep->ReleaseValue
-            = fmap(hw.adc.GetFloat(SweepKnob), 0.1f, 1.f, Mapping::EXP);
+            = fmap(hw.adc.GetFloat(SweepKnob), 0.f, 1.f, Mapping::LINEAR);
     }
 
     // LFO depth and rate knobs
