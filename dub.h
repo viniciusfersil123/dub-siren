@@ -189,6 +189,8 @@ class Sweep
 
     void  SetReleaseTime(float time);
     float Process(bool gate);
+    float CalculateFilterIntensity(float sweepValue);
+    float CalculateVcoIntensity(float sweepValue);
     float UpdateCutoffFreq(float sweepValue, Vcf* vcf, float adsrOutput);
 };
 // Sweep
