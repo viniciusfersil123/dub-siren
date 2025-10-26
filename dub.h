@@ -132,8 +132,8 @@ class Vco
         this->osc.SetFreq(440.0f);
         this->nyquist_limit
             = sample_rate
-              / 3.0f;          // Safe Nyquist limit for the frequency folding
-        this->fm_ratio = 2.0f; // FM C:M ratio (smaller = wider modulation)
+              / 2.0f;          // Safe Nyquist limit for the frequency folding
+        this->fm_ratio = 1.0f; // FM C:M ratio (smaller = wider modulation)
     }
 
     Oscillator osc;
