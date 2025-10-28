@@ -201,7 +201,7 @@ class Sweep
     float UpdateCutoffFreq(float sweepValue, Vcf* vcf, float adsrOutput);
 
   private:
-    static constexpr float DEADZONE_HALF_WIDTH = 0.2f; // Half-width of deadzone on each side of center
+    static constexpr float DEADZONE_HALF_WIDTH = 0.1f; // Half-width of deadzone on each side of center
 };
 // Sweep
 
