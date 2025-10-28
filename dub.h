@@ -23,6 +23,7 @@ using namespace daisysp;
 #define LFO_3_WAVEFORM Oscillator::WAVE_RAMP
 #define LFO_MIN_FREQ 0.0f
 #define LFO_MAX_FREQ 20.0f
+#define LFO_FM_INDEX 1.0f
 
 #define VCF_FILTER OnePole::FILTER_MODE_LOW_PASS
 #define VCF_MIN_FREQ 15.0f
@@ -100,7 +101,7 @@ class Lfo
     }
 
 
-    float                   DepthValue;
+    float                   DepthValue; // Vibrato intensity/amount (0-1)
     float                   RateValue;
     Oscillator              osc[4];
     Oscillator              osc_harm[4];
@@ -129,14 +130,20 @@ class Vco
         this->osc.SetWaveform(VCO_WAVEFORM);
         this->osc.SetAmp(1.0f);
         this->osc.SetFreq(440.0f);
+        this->nyquist_limit
+            = sample_rate
+              / 2.0f;          // Safe Nyquist limit for the frequency folding
+        this->fm_ratio = 1.0f; // FM C:M ratio (smaller = wider modulation)
     }
 
     Oscillator osc;
     float      TuneValue;
+    float      nyquist_limit;
+    float      fm_ratio;
 
-    void  Init();
     void  SetFreq(float freq);
     float Process();
+    float CalculateFMFreq(float carrier_freq, float lfo_bipolar, float depth);
 };
 // Vco
 
