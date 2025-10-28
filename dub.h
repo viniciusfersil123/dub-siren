@@ -14,7 +14,7 @@ using namespace daisysp;
 #define ADSR_ATTACK_TIME 0.3f
 #define ADSR_DECAY_TIME 0.1f
 #define ADSR_SUSTAIN_LEVEL 1.f
-#define ADSR_RELEASE_TIME 10.f
+#define ADSR_RELEASE_TIME 15.f
 #define ADSR_MIN_RELEASE_TIME 0.1f
 
 #define LFO_0_WAVEFORM Oscillator::WAVE_SIN
