@@ -520,16 +520,26 @@ void Vcf::SetFreq(float freq)
 
 void Vcf::UpdateCutoffPressed(float sweepValue)
 {
-    // Map the sweep value to a piecewise linear interpolation
-    // 0%  to 50%  -> 0%  to 75%
-    // 50% to 100% -> 75% to 100%
+    // Map the sweep value to achieve:
+    // 0% to 50% knob  -> 0% to firstHalfMax% frequency range (exponential)
+    // 50% to 100% knob -> firstHalfMax% to 100% frequency range (exponential)
+    const float firstHalfMax = 0.9f;
+
     if(sweepValue <= 0.5f)
     {
-        this->CutoffExponent = (sweepValue / 0.5f) * 0.75f;
+        // First half: Exponential mapping to firstHalfMax of range
+        float       normalized = sweepValue * 2.f; // 0.0 to 1.0
+        const float expCurve
+            = 0.5f; // 0.1 makes the curve more linear in the end
+        this->CutoffExponent = firstHalfMax * powf(normalized, expCurve);
     }
     else
     {
-        this->CutoffExponent = 0.75f + ((sweepValue - 0.5f) / 0.5f) * 0.25f;
+        // Second half: Power function for smooth compression
+        float normalized = (sweepValue - 0.5f) * 2.f; // 0.0 to 1.0
+        float remaining  = 1.0f - firstHalfMax;
+        this->CutoffExponent
+            = firstHalfMax + remaining * powf(normalized, SWEEP_CURVE_POWER);
     }
 
     this->CutoffFreq
