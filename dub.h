@@ -28,6 +28,7 @@ using namespace daisysp;
 #define VCF_FILTER OnePole::FILTER_MODE_LOW_PASS
 #define VCF_MIN_FREQ 15.0f
 #define VCF_MAX_FREQ 15000.0f
+#define SWEEP_CURVE_POWER 3.0f
 
 DaisySeed hw;
 
