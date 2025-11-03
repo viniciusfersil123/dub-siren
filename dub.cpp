@@ -273,7 +273,7 @@ float Sweep::CalculateFilterIntensity(float sweepValue)
     float abs_dir   = fabsf(direction);
 
     // Dead zone threshold
-    float threshold = 0.2f;
+    float threshold = DEADZONE_HALF_WIDTH;
     float intensity = 0.0f;
 
     // Assymetrical curve
@@ -301,7 +301,7 @@ float Sweep::CalculateVcoIntensity(float sweepValue)
     float direction = 2.0f * (sweepValue - 0.5f);
     float abs_dir   = fabsf(direction);
 
-    float threshold = 0.2f;
+    float threshold = DEADZONE_HALF_WIDTH;
     float intensity = 0.f;
 
     // Calculate sweep intensity for VCO:
